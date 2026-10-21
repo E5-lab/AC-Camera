@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
@@ -99,7 +100,10 @@ class DesktopRepository(private val dataFile: File) {
         persist()
     }
 
-    fun exportJson(): String = json.encodeToString<List<ProjectWithMeasurements>>(store.values.toList())
+    fun exportJson(): String = json.encodeToString(
+        ListSerializer(ProjectWithMeasurements.serializer()),
+        store.values.toList(),
+    )
 
     private fun persist() {
         runCatching {

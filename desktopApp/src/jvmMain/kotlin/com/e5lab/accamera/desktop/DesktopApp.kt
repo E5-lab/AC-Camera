@@ -45,7 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import org.jetbrains.skiko.toComposeImageBitmap
+import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
@@ -64,7 +64,6 @@ import com.e5lab.accamera.domain.interpolation.FieldResult
 import com.e5lab.accamera.domain.interpolation.PointValue
 import java.awt.EventQueue
 import java.io.File
-import javax.imageio.ImageIO
 import javax.swing.JFileChooser
 import kotlin.math.floor
 import kotlin.math.log10
@@ -373,9 +372,9 @@ fun niceNumber(x: Float): Float {
 fun loadBaseMap(path: String?): ImageBitmap? {
     if (path == null) return null
     return runCatching {
-        // ImageIO.read returns a java.awt.image.BufferedImage; skiko provides the
-        // BufferedImage.toComposeImageBitmap() extension that turns it into a Compose ImageBitmap.
-        ImageIO.read(File(path))?.toComposeImageBitmap()
+        // loadImageBitmap (androidx.compose.ui.res) decodes an InputStream into a Compose
+        // ImageBitmap using the bundled Skia backend — no extra skiko AWT dependency needed.
+        loadImageBitmap(File(path).inputStream())
     }.getOrNull()
 }
 
