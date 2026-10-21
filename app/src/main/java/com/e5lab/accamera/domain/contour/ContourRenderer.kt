@@ -13,7 +13,14 @@ import com.e5lab.accamera.domain.interpolation.FieldResult
  */
 object ContourRenderer {
 
-    fun render(field: FieldResult, levels: List<Double>): Bitmap {
+    /**
+     * Renders the field into a heatmap bitmap.
+     *
+     * @param colorBands number of quantized colour bands (e.g. 8/16/32/64/128/256). Values < 2
+     *        produce the continuous gradient. Quantising makes the map show discrete colour zones
+     *        whose "precision" the user can trade for readability.
+     */
+    fun render(field: FieldResult, levels: List<Double>, colorBands: Int = 0): Bitmap {
         val (values, resX, resY, _, _, min, max) = field
         val bmp = Bitmap.createBitmap(resX, resY, Bitmap.Config.ARGB_8888)
         val range = if (max - min > 1e-6) (max - min) else 1.0
@@ -21,7 +28,11 @@ object ContourRenderer {
         for (gy in 0 until resY) {
             for (gx in 0 until resX) {
                 val v = values[gy * resX + gx]
-                val t = ((v - min) / range).coerceIn(0.0, 1.0)
+                var t = ((v - min) / range).coerceIn(0.0, 1.0)
+                if (colorBands >= 2) {
+                    val band = (t * colorBands).toInt().coerceIn(0, colorBands - 1)
+                    t = (band + 0.5) / colorBands
+                }
                 bmp.setPixel(gx, gy, colormap(t))
             }
         }

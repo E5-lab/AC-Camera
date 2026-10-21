@@ -96,7 +96,7 @@ fun AnalysisScreen(nav: NavHostController, projectId: Long) {
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (measurements.isEmpty()) {
                 Text(
-                    "暂无测点数据。请先在「现场测量」中采集数据。",
+                    "暂无测点数据。请先在「数据输入」中录入数据。",
                     modifier = Modifier.padding(16.dp),
                 )
                 return@Column

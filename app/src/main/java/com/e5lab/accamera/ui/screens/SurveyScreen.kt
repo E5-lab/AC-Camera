@@ -68,7 +68,7 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("现场测量") },
+                title = { Text("数据输入") },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")

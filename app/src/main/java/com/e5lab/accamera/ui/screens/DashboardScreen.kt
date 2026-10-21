@@ -16,8 +16,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
@@ -126,8 +126,8 @@ fun DashboardScreen(nav: NavHostController, projectId: Long) {
             }
 
             val actions = listOf(
-                Action("网格设置", "划分测点网格 / 校准", Icons.Default.Edit) { nav.navigate(Routes.setup(p.id)) },
-                Action("现场测量", "逐点测量声压级", Icons.Default.Mic) { nav.navigate(Routes.survey(p.id)) },
+                Action("网格设置", "划分测点网格 / 底图参照", Icons.Default.Edit) { nav.navigate(Routes.setup(p.id)) },
+                Action("数据输入", "录入各测点声压级", Icons.Default.EditNote) { nav.navigate(Routes.survey(p.id)) },
                 Action("等声压级图", "绘制插值等值线", Icons.Default.ShowChart) { nav.navigate(Routes.contour(p.id)) },
                 Action("噪声源分析", "反推主要噪声源", Icons.Default.GraphicEq) { nav.navigate(Routes.analysis(p.id)) },
                 Action("治理跟踪", "记录治理与复测", Icons.Default.Tune) { nav.navigate(Routes.remediation(p.id)) },

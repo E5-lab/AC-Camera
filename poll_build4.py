@@ -6,7 +6,7 @@ import time
 import urllib.request
 
 REPO = "E5-lab/AC-Camera"
-RUN_ID = 39570226522
+RUN_ID = 39571458401
 APK_OUT = "app-debug.apk"
 
 def get(url):

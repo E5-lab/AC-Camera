@@ -50,6 +50,9 @@ data class Project(
 
     // Ambient / background noise floor in dBA (0 = no background provided)
     val backgroundNoiseDb: Double = 0.0,
+
+    // Number of quantized colour bands of the SPL heatmap (8/16/32/64/128/256)
+    val contourColorBands: Int = 32,
 ) {
     /** Physical width of the surveyed area in meters. */
     val widthMeters: Double get() = (cols - 1).coerceAtLeast(0) * spacingX

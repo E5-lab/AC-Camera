@@ -127,6 +127,8 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
                             backgroundImagePath = bgPath,
                             planReferenceMeters = planRef.toDoubleOrNull(),
                             backgroundNoiseDb = bgNoise.toDoubleOrNull() ?: 0.0,
+                            overlayAlpha = p.overlayAlpha,
+                            contourColorBands = p.contourColorBands,
                             createdAt = p.createdAt,
                         )
                         vm.updateProject(updated)
@@ -176,7 +178,7 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "厂区环境本底噪声。作为整张等声压级图的底噪下限：实测值视为“底噪 + 声源超额”，低能量区域稳定落在底噪、不会伪辐射。留空或 0 表示底噪为 0 dBA。",
+                "厂区环境本底噪声。作为整张等声压级图的底噪下限：实测值视为「底噪 + 声源超额」，低能量区域稳定落在底噪、不会伪辐射。留空或 0 表示底噪为 0 dBA。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

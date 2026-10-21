@@ -9,7 +9,7 @@ import com.e5lab.accamera.data.model.Project
 
 @Database(
     entities = [Project::class, Measurement::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
