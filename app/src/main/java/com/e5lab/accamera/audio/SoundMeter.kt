@@ -87,7 +87,7 @@ class SoundMeter(private val calibrationOffsetDb: Double) {
 
     private suspend fun readLoop() {
         val buffer = ShortArray(bufferSize)
-        while (isActive && _isRunning.value) {
+        while (scope.isActive && _isRunning.value) {
             val read = recorder?.read(buffer, 0, buffer.size) ?: 0
             if (read <= 0) {
                 delay(50)
