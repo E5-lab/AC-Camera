@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -173,7 +174,7 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    "测点 (列 $c, 行 $r) · x=${"%.1f".format(p.xAt(c))}m y=${"%.1f".format(p.yAt(r))}m",
+                    "测点 (列 $c, 行 $r) · x=${"%.1f".format(project!!.xAt(c))}m y=${"%.1f".format(project!!.yAt(r))}m",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )

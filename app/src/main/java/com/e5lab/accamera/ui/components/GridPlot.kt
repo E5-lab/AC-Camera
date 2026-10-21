@@ -4,7 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +41,7 @@ fun GridPlot(
     val pad = 24f
     val range = (maxValue - minValue).let { if (it <= 1e-6) 1.0 else it }
 
-    Box(modifier.fillMaxSize().onSizeChanged { size = it }) {
+    Box(modifier.fillMaxSize().onGloballyPositioned { size = it.size }) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -79,10 +79,15 @@ fun GridPlot(
             val cellH = if (rows > 1) availH / (rows - 1) else availH
 
             if (background != null) {
-                drawImage(
-                    image = background,
-                    dstOffset = Offset(pad, pad),
-                    dstSize = IntSize(availW.toInt(), availH.toInt()),
+                withTransform(
+                    transformBlock = {
+                        translate(left = pad, top = pad)
+                        scale(
+                            scaleX = availW / background.width.toFloat(),
+                            scaleY = availH / background.height.toFloat(),
+                        )
+                    },
+                    drawBlock = { drawImage(background) },
                 )
             }
 

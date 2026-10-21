@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -72,6 +73,7 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
     var sy by remember { mutableStateOf("5") }
     var calibration by remember { mutableStateOf("90") }
     var bgPath by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(project) {
         project?.let {
@@ -90,7 +92,7 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
         ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         if (uri != null) {
-            vm.viewModelScope.launch {
+            scope.launch {
                 val path = copyUriToInternal(context, uri, projectId)
                 if (path != null) bgPath = path
             }

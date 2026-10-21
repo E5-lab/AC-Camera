@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +69,7 @@ fun DashboardScreen(nav: NavHostController, projectId: Long) {
     val project by vm.project.collectAsStateWithLifecycle(initialValue = null)
     val measurements by vm.measurements.collectAsStateWithLifecycle(initialValue = emptyList())
     var showDelete by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -129,7 +131,7 @@ fun DashboardScreen(nav: NavHostController, projectId: Long) {
                 Action("噪声源分析", "反推主要噪声源", Icons.Default.GraphicEq) { nav.navigate(Routes.analysis(p.id)) },
                 Action("治理跟踪", "记录治理与复测", Icons.Default.Tune) { nav.navigate(Routes.remediation(p.id)) },
                 Action("导出数据", "CSV 报表分享", Icons.Default.Download) {
-                    vm.viewModelScope.launch {
+                    scope.launch {
                         val file = vm.exportCsv()
                         if (file != null) shareCsv(context, file)
                     }
@@ -149,7 +151,7 @@ fun DashboardScreen(nav: NavHostController, projectId: Long) {
             confirmButton = {
                 TextButton(onClick = {
                     showDelete = false
-                    vm.viewModelScope.launch {
+                    scope.launch {
                         vm.getProject()?.let { vm.deleteProject(it) }
                         nav.popBackStack()
                     }

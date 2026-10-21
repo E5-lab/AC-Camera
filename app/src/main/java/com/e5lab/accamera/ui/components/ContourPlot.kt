@@ -3,7 +3,7 @@ package com.e5lab.accamera.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +37,7 @@ fun ContourPlot(
     val pad = 24f
     val range = (maxValue - minValue).let { if (it <= 1e-6) 1.0 else it }
 
-    Box(modifier.fillMaxSize().onSizeChanged { size = it }) {
+    Box(modifier.fillMaxSize().onGloballyPositioned { size = it.size }) {
         Canvas(Modifier.fillMaxSize()) {
             if (size == IntSize.Zero) return@Canvas
             val availW = size.width - 2 * pad
@@ -46,10 +46,15 @@ fun ContourPlot(
             val cellH = if (rows > 1) availH / (rows - 1) else availH
 
             if (bitmap != null) {
-                drawImage(
-                    image = bitmap,
-                    dstOffset = Offset(pad, pad),
-                    dstSize = IntSize(availW.toInt(), availH.toInt()),
+                withTransform(
+                    transformBlock = {
+                        translate(left = pad, top = pad)
+                        scale(
+                            scaleX = availW / bitmap.width.toFloat(),
+                            scaleY = availH / bitmap.height.toFloat(),
+                        )
+                    },
+                    drawBlock = { drawImage(bitmap) },
                 )
             } else {
                 drawRect(Color.LightGray.copy(alpha = 0.3f), Offset(pad, pad), Size(availW, availH))

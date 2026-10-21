@@ -29,11 +29,20 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build debug APK (capture log)
+      - name: Build debug APK
         id: build
-        run: ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log
 
-      - name: Publish build log to release (always)
+      - name: Upload APK as artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish build log to release (always, for debugging)
         if: always()
         uses: softprops/action-gh-release@v2
         with:
@@ -53,6 +62,9 @@ jobs:
           name: Debug APK (latest build)
           prerelease: true
           force: true
-          files: app/build/outputs/apk/debug/*.apk
+          fail_on_unmatched_files: false
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
+            build.log
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

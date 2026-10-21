@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +53,7 @@ fun ProjectListScreen(nav: NavHostController) {
     val projects by vm.projects.collectAsStateWithLifecycle(initialValue = emptyList())
     var showDialog by remember { mutableStateOf(false) }
     var projectToDelete by remember { mutableStateOf<Project?>(null) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -98,7 +100,7 @@ fun ProjectListScreen(nav: NavHostController) {
             onDismiss = { showDialog = false },
             onConfirm = { name, desc, cols, rows, sx, sy ->
                 showDialog = false
-                vm.viewModelScope.launch {
+                scope.launch {
                     val id = vm.create(name, desc, cols, rows, sx, sy)
                     nav.navigate(Routes.project(id))
                 }

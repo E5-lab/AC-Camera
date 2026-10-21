@@ -131,6 +131,6 @@ class SoundMeter(private val calibrationOffsetDb: Double) {
 
     fun dispose() {
         stop()
-        scope.cancel()
+        scope.coroutineContext[Job]?.cancel()
     }
 }
