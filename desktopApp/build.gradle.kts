@@ -12,6 +12,8 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
+                // Material3 不在桌面聚合依赖中，需单独声明（安卓端通过 BOM 引入）。
+                implementation(compose.material3)
                 implementation(project(":shared"))
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
             }

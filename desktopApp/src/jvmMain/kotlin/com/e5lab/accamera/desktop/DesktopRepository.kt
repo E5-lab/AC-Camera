@@ -99,7 +99,7 @@ class DesktopRepository(private val dataFile: File) {
         persist()
     }
 
-    fun exportJson(): String = json.encodeToString(store.values.toList())
+    fun exportJson(): String = json.encodeToString<List<ProjectWithMeasurements>>(store.values.toList())
 
     private fun persist() {
         runCatching {

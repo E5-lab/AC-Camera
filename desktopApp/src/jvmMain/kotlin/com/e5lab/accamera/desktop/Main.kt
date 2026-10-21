@@ -1,8 +1,8 @@
 package com.e5lab.accamera.desktop
 
-import org.jetbrains.compose.ui.window.application
-import org.jetbrains.compose.ui.window.rememberWindowState
-import org.jetbrains.compose.ui.window.Window
+import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
+import androidx.compose.ui.window.Window
 import androidx.compose.ui.unit.dp
 
 fun main() = application {
