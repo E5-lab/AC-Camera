@@ -70,8 +70,9 @@ fun AnalysisScreen(nav: NavHostController, projectId: Long) {
         }
     }
 
-    val sources = if (project != null) {
-        NoiseSourceAnalyzer.detect(project, measurements, threshold, project.backgroundNoiseDb)
+    val proj = project // local copy so smart-cast works on a delegated property
+    val sources = if (proj != null) {
+        NoiseSourceAnalyzer.detect(proj, measurements, threshold, proj.backgroundNoiseDb)
     } else {
         emptyList()
     }

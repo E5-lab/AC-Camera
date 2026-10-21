@@ -8,6 +8,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.nativeCanvas
 import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
@@ -50,7 +51,7 @@ fun DrawScope.drawScaleBar(rect: Rect, planReferenceMeters: Double?) {
     val targetPx = 100f
     val nice = niceNumber(targetPx / pxPerMeter)
     val barPx = nice * pxPerMeter
-    val d = drawContext.density
+    val d = density // DrawScope implements Density; this is the Float pixel density
     val x0 = rect.left + 12f * d
     val y = rect.bottom - 16f * d
 
