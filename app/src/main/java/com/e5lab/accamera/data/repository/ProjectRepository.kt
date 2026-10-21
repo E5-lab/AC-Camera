@@ -27,9 +27,10 @@ class ProjectRepository(
     fun allProjects(): Flow<List<Project>> = db.projectDao().observeAll()
     fun getProjectFlow(id: Long): Flow<Project?> = db.projectDao().observeById(id)
     suspend fun getProject(id: Long): Project? = db.projectDao().getById(id)
-    suspend fun create(project: Project): Long = db.projectDao().upsert(project)
-    suspend fun update(project: Project): Long =
-        db.projectDao().upsert(project.copy(updatedAt = System.currentTimeMillis()))
+    suspend fun create(project: Project): Long = db.projectDao().insert(project)
+
+    suspend fun update(project: Project) =
+        db.projectDao().update(project.copy(updatedAt = System.currentTimeMillis()))
 
     suspend fun delete(project: Project) = db.projectDao().delete(project)
 
