@@ -31,5 +31,5 @@ data class Measurement(
     val isNoiseSource: Boolean = false,
 ) {
     val hasRemediation: Boolean get() = afterSpl != null
-    val reductionDb: Double? get() = if (afterSpl != null) spl - afterSpl!! else null
+    val reductionDb: Double? get() = if (afterSpl != null) spl - afterSpl else null
 }

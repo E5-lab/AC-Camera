@@ -1,6 +1,6 @@
 import json, time, urllib.request, sys
 
-RUN_ID = 39615245406
+RUN_ID = 39618446941
 API = f"https://api.github.com/repos/E5-lab/AC-Camera/actions/runs/{RUN_ID}"
 H = {"User-Agent": "poll"}
 
