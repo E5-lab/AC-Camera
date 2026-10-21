@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Robust download of app-debug.apk: verifies size against Content-Length, resumes, retries."""
+"""Fresh download of app-debug.apk for a specific build, with retry + same-file resume + size verify."""
 import os
 import sys
 import time
 import urllib.request
 
-URL = "https://github.com/E5-lab/AC-Camera/releases/download/latest-debug/app-debug.apk"
-OUT = "app-debug.apk"
+TAG = sys.argv[1] if len(sys.argv) > 1 else "latest-debug"
+URL = f"https://github.com/E5-lab/AC-Camera/releases/download/{TAG}/app-debug.apk"
+OUT = f"app-debug-{TAG}.apk"
 
 def fetch_length():
     req = urllib.request.Request(URL, headers={"User-Agent": "poll", "Range": "bytes=0-0"})
@@ -23,10 +24,11 @@ def main():
         print("[dl] cannot determine total size")
         return 2
 
-    for attempt in range(1, 9):
+    for attempt in range(1, 13):
         have = os.path.getsize(OUT) if os.path.exists(OUT) else 0
         if have >= total:
-            break
+            print(f"[dl] COMPLETE {have} bytes ({have / 1048576:.1f} MB)", flush=True)
+            return 0
         print(f"[dl] attempt {attempt}: resume from {have / 1048576:.1f} MB", flush=True)
         try:
             req = urllib.request.Request(
@@ -41,13 +43,12 @@ def main():
                     f.write(chunk)
         except Exception as e:
             print(f"[dl] attempt {attempt} error: {e}", flush=True)
-            time.sleep(2)
-        size = os.path.getsize(OUT)
-        print(f"[dl] now at {size / 1048576:.1f} / {total / 1048576:.1f} MB", flush=True)
-        if size >= total:
-            print(f"[dl] COMPLETE {size} bytes ({size / 1048576:.1f} MB)", flush=True)
-            return 0
-    print("[dl] FAILED to reach full size after retries")
+            time.sleep(3)
+    have = os.path.getsize(OUT) if os.path.exists(OUT) else 0
+    if have >= total:
+        print(f"[dl] COMPLETE {have} bytes", flush=True)
+        return 0
+    print(f"[dl] FAILED at {have} / {total} bytes")
     return 3
 
 if __name__ == "__main__":

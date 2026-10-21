@@ -4,11 +4,9 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.e5lab.accamera.data.model.Measurement
-import com.e5lab.accamera.data.model.Project
 
 @Database(
-    entities = [Project::class, Measurement::class],
+    entities = [ProjectEntity::class, MeasurementEntity::class],
     version = 2,
     exportSchema = false
 )

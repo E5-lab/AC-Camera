@@ -22,5 +22,6 @@
 - 工作流必须用 `set -o pipefail`，否则 `| tee build.log` 会掩盖 Gradle 失败、导致"假绿"无 APK。
 - 坑：Compose `Canvas` 里用 `rememberCoroutineScope()` 返回的 `CoroutineScope` 调 `.launch{}` 需 `import kotlinx.coroutines.launch`（扩展函数）；`viewModelScope.launch` 是其自带成员方法，不需该 import。`drawImage` 缩放用 `drawImage(bmp, dstOffset=IntOffset(...), dstSize=IntSize(...))`，不用 `withTransform/translate/scale`（该环境未解析）。
 - **Room：实体加/删字段必须同步升 `AppDatabase` version**，否则已装用户崩溃；当前 v2，`fallbackToDestructiveMigration` 会清数据。
+- **Room 铁律：父表有 `ON DELETE CASCADE` 子表时，父表 DAO 禁用 `OnConflictStrategy.REPLACE`（= DELETE+INSERT，会级联清空子表）**；用 `@Insert` + `@Update` 分开（dccf838 修过"更新项目清空全部测点数据"的恶性 bug）。
 - Compose 细节：`drawContext.density` 是 Density 对象非 Float（用 DrawScope 自身 `density`）；`Canvas.nativeCanvas` 需 import `androidx.compose.ui.graphics.nativeCanvas`；`collectAsStateWithLifecycle` 在 `androidx.lifecycle.compose` 包；委托属性需局部 val 才能 smart cast。
 - GitHub SSH 偶发被 reset（22/443 都可能），重试即可；Release 大文件下载需断点续传（download_apk.py）。

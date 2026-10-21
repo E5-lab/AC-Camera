@@ -1,5 +1,7 @@
 package com.e5lab.accamera.ui.screens
 
+import android.graphics.Bitmap as AndroidBitmap
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,7 +42,7 @@ import androidx.navigation.NavHostController
 import com.e5lab.accamera.ACameraApplication
 import com.e5lab.accamera.data.model.Project
 import com.e5lab.accamera.domain.contour.ContourBuilder
-import com.e5lab.accamera.domain.contour.ContourRenderer
+import com.e5lab.accamera.domain.contour.HeatmapRenderer
 import com.e5lab.accamera.domain.interpolation.EnergyFieldInterpolator
 import com.e5lab.accamera.domain.interpolation.FieldResult
 import com.e5lab.accamera.domain.interpolation.PointValue
@@ -267,7 +269,12 @@ private fun rememberContour(
             val splMax = splValues.maxOrNull() ?: bg
             val splField = excess.copy(values = splValues, min = splMin, max = splMax)
             val levels = ContourBuilder.defaultLevels(splMin, splMax)
-            val bmp = ContourRenderer.render(splField, levels, colorBands).asImageBitmap()
+            val grid = HeatmapRenderer.renderColorGrid(splField, levels, colorBands)
+            val bmp = AndroidBitmap.createBitmap(
+                splField.resX, splField.resY, AndroidBitmap.Config.ARGB_8888
+            ).apply {
+                for (i in grid.indices) setPixel(i % width, i / width, grid[i])
+            }.asImageBitmap()
             result = splField to bmp
         }
     }

@@ -1,27 +1,14 @@
 package com.e5lab.accamera.data.model
 
-import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.PrimaryKey
-
 /**
  * One sound-pressure-level reading at a grid point.
  *
  * The natural key is (projectId, col, row) — a grid point holds a single current reading,
  * plus optional remediation tracking (what was done + the post-treatment re-measurement).
+ *
+ * Platform-agnostic model shared between the Android and Desktop clients; see [Project] for notes
+ * on persistence.
  */
-@Entity(
-    tableName = "measurements",
-    primaryKeys = ["projectId", "col", "row"],
-    foreignKeys = [
-        ForeignKey(
-            entity = Project::class,
-            parentColumns = ["id"],
-            childColumns = ["projectId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ]
-)
 data class Measurement(
     val projectId: Long,
     val col: Int,

@@ -51,6 +51,9 @@ android {
 }
 
 dependencies {
+    // Shared Kotlin Multiplatform core (domain algorithms + platform-agnostic models)
+    implementation(project(":shared"))
+
     // Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
     implementation("androidx.compose.ui:ui")

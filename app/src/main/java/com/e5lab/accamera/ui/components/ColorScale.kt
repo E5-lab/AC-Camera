@@ -3,7 +3,7 @@ package com.e5lab.accamera.ui.components
 import androidx.compose.ui.graphics.Color
 
 /**
- * Blue -> cyan -> green -> yellow -> red colormap, matching [com.e5lab.accamera.domain.contour.ContourRenderer].
+ * Blue -> cyan -> green -> yellow -> red colormap, matching [com.e5lab.accamera.domain.contour.HeatmapRenderer].
  * @param t value in [0,1]
  */
 private val STOPS = listOf(

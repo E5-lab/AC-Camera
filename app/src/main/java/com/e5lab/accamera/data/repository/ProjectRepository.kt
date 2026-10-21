@@ -3,6 +3,10 @@ package com.e5lab.accamera.data.repository
 import android.content.Context
 import android.os.Environment
 import com.e5lab.accamera.data.local.AppDatabase
+import com.e5lab.accamera.data.local.toMeasurementModels
+import com.e5lab.accamera.data.local.toModel
+import com.e5lab.accamera.data.local.toProjectModel
+import com.e5lab.accamera.data.local.toProjectModels
 import com.e5lab.accamera.data.model.Measurement
 import com.e5lab.accamera.data.model.Project
 import kotlinx.coroutines.Dispatchers
@@ -16,7 +20,10 @@ import java.util.Locale
 /**
  * Single source of truth for projects and measurements.
  * All data is stored locally in Room (offline-first) so surveys keep working on the factory floor
- * with no network connection.
+ * with no network connection. The Room entities ([com.e5lab.accamera.data.local.ProjectEntity] /
+ * [com.e5lab.accamera.data.local.MeasurementEntity]) are mapped to the shared, platform-agnostic
+ * [Project] / [Measurement] models so the rest of the app (and the future Desktop client) never
+ * sees Android-specific persistence details.
  */
 class ProjectRepository(
     private val db: AppDatabase,
@@ -24,25 +31,25 @@ class ProjectRepository(
 ) {
 
     // ---- Projects ----
-    fun allProjects(): Flow<List<Project>> = db.projectDao().observeAll()
-    fun getProjectFlow(id: Long): Flow<Project?> = db.projectDao().observeById(id)
-    suspend fun getProject(id: Long): Project? = db.projectDao().getById(id)
-    suspend fun create(project: Project): Long = db.projectDao().insert(project)
+    fun allProjects(): Flow<List<Project>> = db.projectDao().observeAll().toProjectModels()
+    fun getProjectFlow(id: Long): Flow<Project?> = db.projectDao().observeById(id).toProjectModel()
+    suspend fun getProject(id: Long): Project? = db.projectDao().getById(id)?.toModel()
+    suspend fun create(project: Project): Long = db.projectDao().insert(project.toEntity())
 
     suspend fun update(project: Project) =
-        db.projectDao().update(project.copy(updatedAt = System.currentTimeMillis()))
+        db.projectDao().update(project.copy(updatedAt = System.currentTimeMillis()).toEntity())
 
-    suspend fun delete(project: Project) = db.projectDao().delete(project)
+    suspend fun delete(project: Project) = db.projectDao().delete(project.toEntity())
 
     // ---- Measurements ----
     fun measurements(projectId: Long): Flow<List<Measurement>> =
-        db.measurementDao().observeByProject(projectId)
+        db.measurementDao().observeByProject(projectId).toMeasurementModels()
 
     suspend fun getMeasurements(projectId: Long): List<Measurement> =
-        db.measurementDao().getByProject(projectId)
+        db.measurementDao().getByProject(projectId).map { it.toModel() }
 
     suspend fun upsertMeasurement(measurement: Measurement) =
-        db.measurementDao().upsert(measurement)
+        db.measurementDao().upsert(measurement.toEntity())
 
     suspend fun deleteMeasurement(projectId: Long, col: Int, row: Int) =
         db.measurementDao().deleteOne(projectId, col, row)

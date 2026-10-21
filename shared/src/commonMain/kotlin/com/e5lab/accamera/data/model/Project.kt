@@ -1,10 +1,11 @@
 package com.e5lab.accamera.data.model
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-
 /**
  * A survey project = one factory area divided into a measurement grid.
+ *
+ * This is the platform-agnostic data model shared between the Android and Desktop clients
+ * (lives in the `shared` Kotlin Multiplatform module). Persistence is handled per-platform:
+ * the Android client maps this to a Room entity, the Desktop client maps it to JSON.
  *
  * Grid layout:
  *  - [cols] measurement points per row, [rows] rows of points.
@@ -25,9 +26,8 @@ import androidx.room.PrimaryKey
  *        background is added back, so quiet areas settle at the floor instead of falsely "radiating".
  *        Defaults to 0 dBA when the user provides no background measurement.
  */
-@Entity(tableName = "projects")
 data class Project(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val id: Long = 0,
     val name: String,
     val description: String = "",
     val createdAt: Long = System.currentTimeMillis(),
