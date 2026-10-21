@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Sound wave / acoustic source icon, kept inside the 66dp safe zone -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,38a16,16 0 0 0 -16,16a16,16 0 0 0 16,16a16,16 0 0 0 16,-16h-8a8,8 0 0 1 -8,8a8,8 0 0 1 -8,-8a8,8 0 0 1 8,-8z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:fillType="evenOdd"
+        android:pathData="M54,30a24,24 0 0 0 -24,24M54,30a24,24 0 0 1 24,24" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:fillType="evenOdd"
+        android:pathData="M54,22a32,32 0 0 0 -32,32M54,22a32,32 0 0 1 32,32" />
+</vector>
