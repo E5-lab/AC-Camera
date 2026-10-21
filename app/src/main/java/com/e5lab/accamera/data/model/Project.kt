@@ -13,10 +13,17 @@ import androidx.room.PrimaryKey
  *      y = row * spacingY  (meters)
  *    so the surveyed area is (cols-1)*spacingX wide and (rows-1)*spacingY tall.
  *
- * @param backgroundImagePath optional floor-plan / site photo used as a visual backdrop.
- *        The photo is assumed to cover the whole grid area; the grid is drawn on top of it.
- * @param calibrationOffsetDb offset (dB) added to the raw microphone estimate so the phone
- *        reading approximates real SPL. Calibrate against a reference sound level meter.
+ * @param backgroundImagePath optional factory floor-plan / site photo used as the base map
+ *        for the equal-SPL contour plot and the survey backdrop.
+ * @param planReferenceMeters reference scale of the base map: the real-world width (meters) that
+ *        the plan image spans. Used to display the plan at its true proportions and to draw a
+ *        distance scale bar so the engineer can tell which equipment a source sits on.
+ * @param overlayAlpha opacity (0..1) of the coloured SPL overlay drawn on top of the base map.
+ *        Lower = more transparent, so the underlying equipment in the plan stays visible.
+ * @param backgroundNoiseDb ambient / background noise floor (dBA). The measured SPL at every point is
+ *        treated as background + source excess; interpolation is performed on the excess and the
+ *        background is added back, so quiet areas settle at the floor instead of falsely "radiating".
+ *        Defaults to 0 dBA when the user provides no background measurement.
  */
 @Entity(tableName = "projects")
 data class Project(
@@ -32,11 +39,17 @@ data class Project(
     val spacingX: Double,   // meters between adjacent columns
     val spacingY: Double,   // meters between adjacent rows
 
-    // Visual backdrop
+    // Visual backdrop: optional factory floor-plan / site photo used as the base map
     val backgroundImagePath: String? = null,
 
-    // SPL calibration
-    val calibrationOffsetDb: Double = 90.0,
+    // Reference scale of the base map (real-world width in meters the plan image spans)
+    val planReferenceMeters: Double? = null,
+
+    // Opacity of the coloured SPL overlay on top of the base map (0.1 transparent .. 1 opaque)
+    val overlayAlpha: Float = 0.72f,
+
+    // Ambient / background noise floor in dBA (0 = no background provided)
+    val backgroundNoiseDb: Double = 0.0,
 ) {
     /** Physical width of the surveyed area in meters. */
     val widthMeters: Double get() = (cols - 1).coerceAtLeast(0) * spacingX

@@ -1,8 +1,5 @@
 package com.e5lab.accamera.ui.screens
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -27,24 +23,21 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.e5lab.accamera.ACameraApplication
-import com.e5lab.accamera.audio.SoundMeter
 import com.e5lab.accamera.data.model.Measurement
 import com.e5lab.accamera.ui.components.GridPlot
 import com.e5lab.accamera.ui.components.rememberFileImageBitmap
@@ -71,30 +64,6 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
 
     val bg = rememberFileImageBitmap(project?.backgroundImagePath)
     var selected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-
-    val calibration = project?.calibrationOffsetDb ?: 90.0
-    val soundMeter = remember(calibration) { SoundMeter(calibration) }
-    DisposableEffect(soundMeter) { onDispose { soundMeter.dispose() } }
-    val liveDb by soundMeter.db.collectAsState()
-    val isRunning by soundMeter.isRunning.collectAsState()
-
-    val permLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) soundMeter.start()
-    }
-
-    LaunchedEffect(selected) {
-        if (selected != null) {
-            if (soundMeter.hasPermission(context)) {
-                if (!soundMeter.isRunning.value) soundMeter.start()
-            } else {
-                permLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
-        } else {
-            soundMeter.stop()
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -130,7 +99,7 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
             Text(
-                "点击格点测量该处声压级。格点颜色表示声级高低（蓝低→红高）。",
+                "点击格点录入该处声压级。请用声级计测得该点数值后填入；格点颜色表示声级高低（蓝低→红高）。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp, 8.dp, 16.dp, 0.dp),
@@ -144,6 +113,7 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
                     selected = selected,
                     minValue = minV,
                     maxValue = maxV,
+                    planReferenceMeters = p.planReferenceMeters,
                     onPointTap = { c, r -> selected = c to r },
                 )
             }
@@ -155,12 +125,10 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
         val (c, r) = selected!!
         val existing = measurements.find { it.col == c && it.row == r }
 
-        var captured by remember { mutableStateOf<Double?>(null) }
         var manualText by remember { mutableStateOf("") }
         var noteText by remember { mutableStateOf("") }
 
         LaunchedEffect(selected) {
-            captured = null
             manualText = existing?.spl?.toString() ?: ""
             noteText = existing?.note ?: ""
         }
@@ -178,40 +146,16 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
-
-                // Live meter
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        "%.1f".format(liveDb),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text("实时声压级 dB(A) 估测", style = MaterialTheme.typography.bodySmall)
-                    if (isRunning) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
-                    } else {
-                        Text(
-                            "麦克风未启动（可能无权限）",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-
-                Button(
-                    onClick = { captured = liveDb },
-                    enabled = isRunning,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Default.Mic, contentDescription = null)
-                    Text(" 采集当前读数")
-                }
+                Text(
+                    "请用声级计测得该点声压级后填入下方（dB）。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
                 OutlinedTextField(
                     value = manualText,
                     onValueChange = { manualText = it },
-                    label = { Text("声压级 dB（手动输入）") },
+                    label = { Text("声压级 dB（声级计实测值）") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -226,7 +170,7 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = {
-                            val value = captured ?: manualText.toDoubleOrNull() ?: existing?.spl ?: 0.0
+                            val value = manualText.toDoubleOrNull() ?: existing?.spl ?: 0.0
                             vm.upsertMeasurement(
                                 Measurement(
                                     projectId = projectId,

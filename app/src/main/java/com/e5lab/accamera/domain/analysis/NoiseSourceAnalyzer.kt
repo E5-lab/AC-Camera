@@ -27,6 +27,7 @@ object NoiseSourceAnalyzer {
         project: Project,
         measurements: List<Measurement>,
         thresholdDb: Double,
+        backgroundNoiseDb: Double = 0.0,
     ): List<NoiseSource> {
         if (measurements.isEmpty()) return emptyList()
 
@@ -41,6 +42,7 @@ object NoiseSourceAnalyzer {
         for (m in measurements) {
             val v = m.spl
             if (v < thresholdDb) continue
+            if (v - backgroundNoiseDb <= 0.0) continue
 
             var isMax = true
             outer@ for (dr in -1..1) {

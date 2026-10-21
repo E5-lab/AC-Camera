@@ -72,7 +72,7 @@ class ProjectRepository(
                 w.appendLine("行间距(米),${project.spacingY}")
                 w.appendLine("区域宽度(米),${"%.2f".format(project.widthMeters)}")
                 w.appendLine("区域高度(米),${"%.2f".format(project.heightMeters)}")
-                w.appendLine("校准偏移(dB),${project.calibrationOffsetDb}")
+                w.appendLine("背景噪声(dBA),${"%.1f".format(project.backgroundNoiseDb)}")
                 w.appendLine("")
                 w.appendLine("col,row,x_m,y_m,spl_db,note,remediation,after_spl_db,reduction_db")
 

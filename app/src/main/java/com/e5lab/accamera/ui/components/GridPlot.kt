@@ -22,9 +22,9 @@ import androidx.compose.ui.unit.IntSize
 /**
  * Interactive grid plot used by the survey screen.
  *
- * Draws an optional background image stretched across the plotting area, the grid lines, and a dot
- * per grid point coloured by its measured SPL (grey if unmeasured). Tapping near a point reports it
- * via [onPointTap].
+ * Draws an optional base-map image fitted to its true aspect ratio across the plotting area, the grid
+ * lines, and a dot per grid point coloured by its measured SPL (grey if unmeasured). Tapping near a
+ * point reports it via [onPointTap].
  */
 @Composable
 fun GridPlot(
@@ -35,6 +35,7 @@ fun GridPlot(
     selected: Pair<Int, Int>?,
     minValue: Double,
     maxValue: Double,
+    planReferenceMeters: Double? = null,
     onPointTap: (col: Int, row: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -46,19 +47,17 @@ fun GridPlot(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(cols, rows) {
+                .pointerInput(cols, rows, background) {
                     detectTapGestures { offset ->
                         if (size == IntSize.Zero || cols <= 0 || rows <= 0) return@detectTapGestures
-                        val availW = size.width - 2 * pad
-                        val availH = size.height - 2 * pad
-                        val cellW = if (cols > 1) availW / (cols - 1) else availW
-                        val cellH = if (rows > 1) availH / (rows - 1) else availH
-
+                        val rect = plotRect(size.width.toFloat(), size.height.toFloat(), pad, background)
+                        val cw = if (cols > 1) rect.width / (cols - 1) else rect.width / 2f
+                        val ch = if (rows > 1) rect.height / (rows - 1) else rect.height / 2f
                         var best: Pair<Int, Int>? = null
                         var bestDist = Float.MAX_VALUE
                         for (c in 0 until cols) for (r in 0 until rows) {
-                            val px = pad + c * cellW
-                            val py = pad + r * cellH
+                            val px = rect.left + c * cw
+                            val py = rect.top + r * ch
                             val d =
                                 (offset.x - px) * (offset.x - px) + (offset.y - py) * (offset.y - py)
                             if (d < bestDist) {
@@ -66,7 +65,7 @@ fun GridPlot(
                                 best = c to r
                             }
                         }
-                        val thr = ((cellW.coerceAtMost(cellH)) * 0.6f).let { it * it }
+                        val thr = ((cw.coerceAtMost(ch)) * 0.6f).let { it * it }
                         if (best != null && bestDist <= thr) {
                             onPointTap(best.first, best.second)
                         }
@@ -74,33 +73,30 @@ fun GridPlot(
                 }
         ) {
             if (size == IntSize.Zero) return@Canvas
-            val availW = size.width - 2 * pad
-            val availH = size.height - 2 * pad
-            val cellW = if (cols > 1) availW / (cols - 1) else availW
-            val cellH = if (rows > 1) availH / (rows - 1) else availH
+            val rect = plotRect(size.width.toFloat(), size.height.toFloat(), pad, background)
 
             if (background != null) {
                 drawImage(
                     background,
-                    dstOffset = IntOffset(pad.toInt(), pad.toInt()),
-                    dstSize = IntSize(availW.toInt(), availH.toInt()),
+                    dstOffset = IntOffset(rect.left.toInt(), rect.top.toInt()),
+                    dstSize = IntSize(rect.width.toInt(), rect.height.toInt()),
                 )
             }
 
             val lineColor =
                 if (background != null) Color.White.copy(alpha = 0.45f) else Color.LightGray
             for (c in 0 until cols) {
-                val x = pad + c * cellW
-                drawLine(lineColor, Offset(x, pad), Offset(x, pad + availH), strokeWidth = 1f)
+                val x = rect.left + if (cols > 1) c * rect.width / (cols - 1) else rect.width / 2f
+                drawLine(lineColor, Offset(x, rect.top), Offset(x, rect.bottom), strokeWidth = 1f)
             }
             for (r in 0 until rows) {
-                val y = pad + r * cellH
-                drawLine(lineColor, Offset(pad, y), Offset(pad + availW, y), strokeWidth = 1f)
+                val y = rect.top + if (rows > 1) r * rect.height / (rows - 1) else rect.height / 2f
+                drawLine(lineColor, Offset(rect.left, y), Offset(rect.right, y), strokeWidth = 1f)
             }
 
             for (c in 0 until cols) for (r in 0 until rows) {
-                val px = pad + c * cellW
-                val py = pad + r * cellH
+                val px = rect.left + if (cols > 1) c * rect.width / (cols - 1) else rect.width / 2f
+                val py = rect.top + if (rows > 1) r * rect.height / (rows - 1) else rect.height / 2f
                 val v = points[c to r]
                 val color = if (v != null) {
                     splColor(((v - minValue) / range).toFloat())
@@ -118,6 +114,8 @@ fun GridPlot(
                     )
                 }
             }
+
+            drawScaleBar(rect, planReferenceMeters)
         }
     }
 }

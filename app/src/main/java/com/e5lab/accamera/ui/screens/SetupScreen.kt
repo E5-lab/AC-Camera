@@ -72,7 +72,8 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
     var rows by remember { mutableStateOf("10") }
     var sx by remember { mutableStateOf("5") }
     var sy by remember { mutableStateOf("5") }
-    var calibration by remember { mutableStateOf("90") }
+    var planRef by remember { mutableStateOf("") }
+    var bgNoise by remember { mutableStateOf("0") }
     var bgPath by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -84,7 +85,8 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
             rows = it.rows.toString()
             sx = it.spacingX.toString()
             sy = it.spacingY.toString()
-            calibration = it.calibrationOffsetDb.toString()
+            planRef = it.planReferenceMeters?.toString() ?: ""
+            bgNoise = it.backgroundNoiseDb.toString()
             bgPath = it.backgroundImagePath
         }
     }
@@ -123,7 +125,8 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
                             spacingX = sx.toDoubleOrNull()?.coerceAtLeast(0.1) ?: p.spacingX,
                             spacingY = sy.toDoubleOrNull()?.coerceAtLeast(0.1) ?: p.spacingY,
                             backgroundImagePath = bgPath,
-                            calibrationOffsetDb = calibration.toDoubleOrNull() ?: p.calibrationOffsetDb,
+                            planReferenceMeters = planRef.toDoubleOrNull(),
+                            backgroundNoiseDb = bgNoise.toDoubleOrNull() ?: 0.0,
                             createdAt = p.createdAt,
                         )
                         vm.updateProject(updated)
@@ -152,16 +155,28 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
                 OutlinedTextField(sy, { sy = it }, label = { Text("行间距 (m)") }, singleLine = true, modifier = Modifier.weight(1f))
             }
 
-            Text("声级校准", style = MaterialTheme.typography.titleSmall)
+            Text("底图与参照", style = MaterialTheme.typography.titleSmall)
             OutlinedTextField(
-                calibration,
-                { calibration = it },
-                label = { Text("校准偏移 (dB)") },
+                planRef,
+                { planRef = it },
+                label = { Text("平面图参照宽度（米）") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "用已校准的声级计在当前环境读取一个参考值，将“手机读数 + 此偏移”对齐到参考值。默认 90 dB。",
+                "填写平面图所表示的实际宽度（例如厂房东西向 40 m）。App 会按真实比例显示底图并绘制比例尺，便于判断噪声源对应哪台设备。留空则按画布拉伸。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                bgNoise,
+                { bgNoise = it },
+                label = { Text("背景噪声 / 底噪（dB，可选）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "厂区环境本底噪声。作为整张等声压级图的底噪下限：实测值视为“底噪 + 声源超额”，低能量区域稳定落在底噪、不会伪辐射。留空或 0 表示底噪为 0 dBA。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -43,6 +44,7 @@ import com.e5lab.accamera.domain.interpolation.FieldResult
 import com.e5lab.accamera.domain.interpolation.IdwInterpolator
 import com.e5lab.accamera.domain.interpolation.PointValue
 import com.e5lab.accamera.ui.components.ContourPlot
+import com.e5lab.accamera.ui.components.rememberFileImageBitmap
 import com.e5lab.accamera.ui.components.splColor
 import com.e5lab.accamera.ui.viewmodel.ProjectViewModel
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +64,9 @@ fun ContourScreen(nav: NavHostController, projectId: Long) {
     )
     val project by vm.project.collectAsStateWithLifecycle(initialValue = null)
     val measurements by vm.measurements.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val bg = rememberFileImageBitmap(project?.backgroundImagePath)
+    var overlayAlpha by remember(project) { mutableStateOf(project?.overlayAlpha ?: 0.72f) }
 
     val (field, bitmap) = rememberContour(project, measurements)
     val pointValues = remember(measurements) { measurements.associateBy({ it.col to it.row }, { it.spl }) }
@@ -103,7 +108,44 @@ fun ContourScreen(nav: NavHostController, projectId: Long) {
                     flagged = flagged,
                     minValue = minV,
                     maxValue = maxV,
+                    background = bg,
+                    overlayAlpha = overlayAlpha,
+                    planReferenceMeters = p.planReferenceMeters,
                 )
+            }
+            // Base-map / overlay controls
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("声场图层透明度", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    Text("${"%.0f".format(overlayAlpha * 100)}%", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+                }
+                Slider(
+                    value = overlayAlpha,
+                    onValueChange = { overlayAlpha = it },
+                    onValueChangeFinished = { vm.updateProject(p.copy(overlayAlpha = overlayAlpha)) },
+                    valueRange = 0.1f..1f,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "调低透明度可看清底图上的设备；调高则声场色彩更实。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                p.planReferenceMeters?.let { ref ->
+                    Text(
+                        "底图参照宽度 $ref m（已按真实比例显示并附比例尺）。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                if (p.backgroundNoiseDb > 0) {
+                    Text(
+                        "底噪 ${"%.1f".format(p.backgroundNoiseDb)} dBA 已作为下限参与插值。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             // Legend
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp)) {
@@ -150,13 +192,25 @@ private fun rememberContour(
             return@LaunchedEffect
         }
         withContext(Dispatchers.Default) {
+            val bg = project.backgroundNoiseDb
+            // Treat each reading as background + source excess; interpolate the excess and add the
+            // background back. This keeps the floor at the ambient level so quiet areas do not falsely
+            // "radiate", while real sources still decay outward (fixes the low-point artifact).
             val pts = measurements.map {
-                PointValue(project.xAt(it.col), project.yAt(it.row), it.spl)
+                PointValue(
+                    project.xAt(it.col),
+                    project.yAt(it.row),
+                    (it.spl - bg).coerceAtLeast(0.0),
+                )
             }
-            val field = IdwInterpolator.interpolate(pts, project.widthMeters, project.heightMeters)
-            val levels = ContourBuilder.defaultLevels(field.min, field.max)
-            val bmp = ContourRenderer.render(field, levels).asImageBitmap()
-            result = field to bmp
+            val excess = IdwInterpolator.interpolate(pts, project.widthMeters, project.heightMeters)
+            val splValues = DoubleArray(excess.values.size) { i -> excess.values[i] + bg }
+            val splMin = splValues.minOrNull() ?: bg
+            val splMax = splValues.maxOrNull() ?: bg
+            val splField = excess.copy(values = splValues, min = splMin, max = splMax)
+            val levels = ContourBuilder.defaultLevels(splMin, splMax)
+            val bmp = ContourRenderer.render(splField, levels).asImageBitmap()
+            result = splField to bmp
         }
     }
     return result

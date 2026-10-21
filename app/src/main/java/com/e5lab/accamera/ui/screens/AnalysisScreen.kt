@@ -71,7 +71,7 @@ fun AnalysisScreen(nav: NavHostController, projectId: Long) {
     }
 
     val sources = if (project != null) {
-        NoiseSourceAnalyzer.detect(project!!, measurements, threshold)
+        NoiseSourceAnalyzer.detect(project, measurements, threshold, project.backgroundNoiseDb)
     } else {
         emptyList()
     }
