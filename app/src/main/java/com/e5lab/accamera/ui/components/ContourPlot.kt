@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 
 /**
@@ -46,15 +47,10 @@ fun ContourPlot(
             val cellH = if (rows > 1) availH / (rows - 1) else availH
 
             if (bitmap != null) {
-                withTransform(
-                    transformBlock = {
-                        translate(left = pad, top = pad)
-                        scale(
-                            scaleX = availW / bitmap.width.toFloat(),
-                            scaleY = availH / bitmap.height.toFloat(),
-                        )
-                    },
-                    drawBlock = { drawImage(bitmap) },
+                drawImage(
+                    bitmap,
+                    dstOffset = IntOffset(pad.toInt(), pad.toInt()),
+                    dstSize = IntSize(availW.toInt(), availH.toInt()),
                 )
             } else {
                 drawRect(Color.LightGray.copy(alpha = 0.3f), Offset(pad, pad), Size(availW, availH))

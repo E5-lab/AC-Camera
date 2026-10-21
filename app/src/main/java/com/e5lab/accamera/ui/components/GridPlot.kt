@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 
 /**
@@ -79,15 +80,10 @@ fun GridPlot(
             val cellH = if (rows > 1) availH / (rows - 1) else availH
 
             if (background != null) {
-                withTransform(
-                    transformBlock = {
-                        translate(left = pad, top = pad)
-                        scale(
-                            scaleX = availW / background.width.toFloat(),
-                            scaleY = availH / background.height.toFloat(),
-                        )
-                    },
-                    drawBlock = { drawImage(background) },
+                drawImage(
+                    background,
+                    dstOffset = IntOffset(pad.toInt(), pad.toInt()),
+                    dstSize = IntSize(availW.toInt(), availH.toInt()),
                 )
             }
 
