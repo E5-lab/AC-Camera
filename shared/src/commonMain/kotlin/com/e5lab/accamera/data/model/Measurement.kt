@@ -1,5 +1,7 @@
 package com.e5lab.accamera.data.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * One sound-pressure-level reading at a grid point.
  *
@@ -9,6 +11,7 @@ package com.e5lab.accamera.data.model
  * Platform-agnostic model shared between the Android and Desktop clients; see [Project] for notes
  * on persistence.
  */
+@Serializable
 data class Measurement(
     val projectId: Long,
     val col: Int,

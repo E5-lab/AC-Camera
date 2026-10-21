@@ -1,6 +1,7 @@
 plugins {
     id("com.android.library")
     kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 android {
@@ -16,10 +17,14 @@ android {
 }
 
 kotlin {
-    android()
+    androidTarget()
     jvm()
 
     sourceSets {
-        val commonMain by getting
+        val commonMain by getting {
+            dependencies {
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.3")
+            }
+        }
     }
 }

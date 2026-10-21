@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "AC-Camera"
-include(":app", ":shared")
+include(":app", ":shared", ":desktopApp")

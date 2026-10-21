@@ -1,4 +1,4 @@
-name: Build Debug APK
+name: Build APK & Windows client
 
 on:
   push:
@@ -10,7 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  # ───────────────────────── Android (phone) ─────────────────────────
+  build-android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -66,5 +67,74 @@ jobs:
           files: |
             app/build/outputs/apk/debug/app-debug.apk
             build.log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ───────────────────────── Windows (desktop) ─────────────────────────
+  # Compose Desktop / jpackage cannot cross-build a Windows EXE on Linux, so this
+  # job runs on a Windows runner and produces a portable distributable (bundled JRE,
+  # no installer — avoids the WiX toolchain). Output is zipped and published as a release.
+  build-desktop-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Windows portable distributable
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew :desktopApp:createDistributable --no-daemon 2>&1 | tee desktop-build.log
+
+      - name: Zip the distributable
+        if: steps.build.outcome == 'success'
+        shell: pwsh
+        run: |
+          $src = "desktopApp/build/compose/binaries/main/app/AC-Camera"
+          if (-not (Test-Path $src)) { Get-ChildItem -Recurse desktopApp/build/compose | Out-String; exit 1 }
+          Compress-Archive -Path "$src/*" -DestinationPath AC-Camera-Windows.zip -Force
+
+      - name: Upload zip as artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ac-camera-windows
+          path: AC-Camera-Windows.zip
+
+      - name: Publish desktop build log to release (always, for debugging)
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-logs
+          name: CI Build Logs
+          prerelease: true
+          force: true
+          files: desktop-build.log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Windows client to release (on success)
+        if: steps.build.outcome == 'success'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-windows
+          name: Windows 客户端 (latest build)
+          prerelease: true
+          force: true
+          fail_on_unmatched_files: false
+          files: |
+            AC-Camera-Windows.zip
+            desktop-build.log
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

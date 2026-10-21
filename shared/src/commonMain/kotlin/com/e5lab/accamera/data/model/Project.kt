@@ -1,5 +1,7 @@
 package com.e5lab.accamera.data.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * A survey project = one factory area divided into a measurement grid.
  *
@@ -26,6 +28,7 @@ package com.e5lab.accamera.data.model
  *        background is added back, so quiet areas settle at the floor instead of falsely "radiating".
  *        Defaults to 0 dBA when the user provides no background measurement.
  */
+@Serializable
 data class Project(
     val id: Long = 0,
     val name: String,
