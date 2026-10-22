@@ -41,23 +41,27 @@ fun plotRect(sizeW: Float, sizeH: Float, pad: Float, bg: ImageBitmap?): Rect {
 
 /**
  * Draws a distance scale bar at the bottom-left of [rect], derived from [planReferenceMeters] (the
- * real-world width the base map spans). No-op when the reference is unknown or non-positive.
+ * real-world width the base map spans). [zoom] keeps the printed length of the bar stable when the
+ * user zooms, so the map stays readable as a measurement aid.
  */
-fun DrawScope.drawScaleBar(rect: Rect, planReferenceMeters: Double?) {
+fun DrawScope.drawScaleBar(rect: Rect, planReferenceMeters: Double?, zoom: Float = 1f) {
     val ref = planReferenceMeters ?: return
     if (ref <= 0) return
     val pxPerMeter = rect.width / ref.toFloat()
     if (pxPerMeter <= 0) return
+    val trueScale = pxPerMeter / if (zoom > 0f) zoom else 1f
     val targetPx = 100f
-    val nice = niceNumber(targetPx / pxPerMeter)
-    val barPx = nice * pxPerMeter
+    val nice = niceNumber(targetPx / trueScale)
+    val barPx = nice * trueScale
     val d = density // DrawScope implements Density; this is the Float pixel density
     val x0 = rect.left + 12f * d
     val y = rect.bottom - 16f * d
 
-    drawLine(Color.Black, Offset(x0, y), Offset(x0 + barPx, y), strokeWidth = 2.5f * d)
-    drawLine(Color.Black, Offset(x0, y - 6f * d), Offset(x0, y + 6f * d), strokeWidth = 2.5f * d)
-    drawLine(Color.Black, Offset(x0 + barPx, y - 6f * d), Offset(x0 + barPx, y + 6f * d), strokeWidth = 2.5f * d)
+    // White halo underneath so the bar stays legible on top of a coloured heatmap.
+    drawLine(Color.White, Offset(x0, y), Offset(x0 + barPx, y), strokeWidth = 4.5f * d)
+    drawLine(Color.Black, Offset(x0, y), Offset(x0 + barPx, y), strokeWidth = 2f * d)
+    drawLine(Color.Black, Offset(x0, y - 6f * d), Offset(x0, y + 6f * d), strokeWidth = 2f * d)
+    drawLine(Color.Black, Offset(x0 + barPx, y - 6f * d), Offset(x0 + barPx, y + 6f * d), strokeWidth = 2f * d)
 
     val label = if (nice >= 1f) "${nice.toInt()} m" else "%.1f m".format(nice)
     val paint = Paint().apply {

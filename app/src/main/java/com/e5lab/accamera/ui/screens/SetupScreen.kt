@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,22 +36,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.e5lab.accamera.ACameraApplication
+import com.e5lab.accamera.data.backdrop.BackdropImporter
 import com.e5lab.accamera.data.model.Project
+import com.e5lab.accamera.domain.cad.CadDrawing
+import com.e5lab.accamera.ui.components.drawCadDrawing
+import com.e5lab.accamera.ui.components.rememberCadDrawing
 import com.e5lab.accamera.ui.components.rememberFileImageBitmap
 import com.e5lab.accamera.ui.viewmodel.ProjectViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +76,9 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
     var planRef by remember { mutableStateOf("") }
     var bgNoise by remember { mutableStateOf("0") }
     var bgPath by remember { mutableStateOf<String?>(null) }
+    var importMsg by remember { mutableStateOf<String?>(null) }
+    var importError by remember { mutableStateOf<String?>(null) }
+    var importing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(project) {
@@ -92,17 +96,28 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
     }
 
     val imageLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent(),
+        ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
         if (uri != null) {
+            importing = true
+            importError = null
+            importMsg = null
             scope.launch {
-                val path = copyUriToInternal(context, uri, projectId)
-                if (path != null) bgPath = path
+                BackdropImporter.import(context, uri, projectId)
+                    .onSuccess { r ->
+                        bgPath = r.path
+                        importMsg = r.detail
+                    }
+                    .onFailure { e ->
+                        importError = e.message ?: "底图导入失败"
+                    }
+                importing = false
             }
         }
     }
 
     val preview = rememberFileImageBitmap(bgPath)
+    val cadPreview = rememberCadDrawing(bgPath)
 
     Scaffold(
         topBar = {
@@ -129,6 +144,11 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
                             backgroundNoiseDb = bgNoise.toDoubleOrNull() ?: 0.0,
                             overlayAlpha = p.overlayAlpha,
                             contourColorBands = p.contourColorBands,
+                            // Preserve the base-map alignment: this screen does not edit it, and
+                            // dropping it here would silently reset a calibrated plan.
+                            baseMapOffsetX = p.baseMapOffsetX,
+                            baseMapOffsetY = p.baseMapOffsetY,
+                            baseMapRotationDeg = p.baseMapRotationDeg,
                             createdAt = p.createdAt,
                         )
                         vm.updateProject(updated)
@@ -183,18 +203,41 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Text("厂区平面图（可选）", style = MaterialTheme.typography.titleSmall)
-            androidx.compose.material3.Button(onClick = { imageLauncher.launch("image/*") }) {
-                Text("选择平面图照片")
+            Text("厂区底图（可选）", style = MaterialTheme.typography.titleSmall)
+            androidx.compose.material3.Button(
+                onClick = { imageLauncher.launch(BackdropImporter.PICKER_MIME) },
+                enabled = !importing,
+            ) {
+                Text(if (importing) "导入中…" else "导入底图（图片 / PDF / CAD）")
             }
-            bgPath?.let {
-                Text("已选择：$it", style = MaterialTheme.typography.bodySmall)
-                preview?.let { bmp ->
-                    Image(
-                        bitmap = bmp,
-                        contentDescription = "平面图预览",
+            Text(
+                "支持 JPG / PNG / WebP 照片、PDF 图纸（取第 1 页渲染）与 CAD 的 DXF 线图。导入后在「数据输入」「等声压级图」中可双指缩放、拖动平移，并用参照宽度把底图校准到真实比例。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            importMsg?.let {
+                Text("✓ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            }
+            importError?.let {
+                Text("✗ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+            bgPath?.let { path ->
+                Text(
+                    "已选择：" + path.substringAfterLast('/'),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                when {
+                    cadPreview != null -> CadPreview(cadPreview, Modifier.fillMaxWidth().height(200.dp))
+                    preview != null -> Image(
+                        bitmap = preview,
+                        contentDescription = "底图预览",
                         modifier = Modifier.fillMaxWidth().height(200.dp),
                         contentScale = ContentScale.Fit,
+                    )
+                    else -> Text(
+                        "底图解析中…（若长时间无预览，说明该文件格式不受支持，请换用 JPG / PNG / PDF / DXF）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             }
@@ -202,15 +245,22 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
     }
 }
 
-private suspend fun copyUriToInternal(context: Context, uri: Uri, projectId: Long): String? =
-    withContext(Dispatchers.IO) {
-        runCatching {
-            val dir = File(context.filesDir, "backgrounds")
-            dir.mkdirs()
-            val out = File(dir, "project_$projectId.jpg")
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                out.outputStream().use { output -> input.copyTo(output) }
-            }
-            out.absolutePath
-        }.getOrNull()
+/** Draws a parsed DXF so the user can confirm it is the right drawing before measuring. */
+@Composable
+private fun CadPreview(drawing: CadDrawing, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier.background(androidx.compose.ui.graphics.Color.White)) {
+        val pad = 8f
+        val availW = (size.width - 2 * pad).coerceAtLeast(1f)
+        val availH = (size.height - 2 * pad).coerceAtLeast(1f)
+        val aspect = drawing.aspectRatio
+        val w = minOf(availW, availH * aspect)
+        val h = w / aspect
+        val left = pad + (availW - w) / 2f
+        val top = pad + (availH - h) / 2f
+        drawCadDrawing(
+            drawing,
+            androidx.compose.ui.geometry.Rect(left, top, left + w, top + h),
+            color = androidx.compose.ui.graphics.Color(0xFF1565C0),
+        )
     }
+}

@@ -30,7 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -43,17 +43,26 @@ import com.e5lab.accamera.ACameraApplication
 import com.e5lab.accamera.data.model.Project
 import com.e5lab.accamera.domain.contour.ContourBuilder
 import com.e5lab.accamera.domain.contour.HeatmapRenderer
+import com.e5lab.accamera.domain.geom.PlotTransform
 import com.e5lab.accamera.domain.interpolation.EnergyFieldInterpolator
 import com.e5lab.accamera.domain.interpolation.FieldResult
 import com.e5lab.accamera.domain.interpolation.PointValue
 import com.e5lab.accamera.ui.components.ContourPlot
+import com.e5lab.accamera.ui.components.rememberCadDrawing
 import com.e5lab.accamera.ui.components.rememberFileImageBitmap
-import com.e5lab.accamera.ui.components.splColor
 import com.e5lab.accamera.ui.viewmodel.ProjectViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private val COLOR_BAND_CHOICES = listOf(8, 16, 32, 64, 128, 256)
+private val COLOR_BAND_CHOICES = listOf(8, 16, 24, 32, 64, 128, 256)
+
+/**
+ * Coloured bands only become visually distinct once the palette colour ramp is quantised, so the
+ * band count also drives the palette step count. HeatmapRenderer clamps the step floor to 64 so
+ * coarse counts (8/16/24/32) keep their full set of distinct colours.
+ */
+private fun colorQuantizeStep(bands: Int): Int =
+    bands.coerceIn(HeatmapRenderer.MIN_PALETTE_STEPS, HeatmapRenderer.MAX_PALETTE_STEPS)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,13 +79,20 @@ fun ContourScreen(nav: NavHostController, projectId: Long) {
     val project by vm.project.collectAsStateWithLifecycle(initialValue = null)
     val measurements by vm.measurements.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    val baseMap = rememberFileImageBitmap(project?.backgroundImagePath)
-    // Local override survives project re-emissions (the DB flow re-emits on every table change),
-    // so dragging the slider is never reset mid-interaction.
+    // Base-map assets are keyed by PATH (not by the whole project): a project emission caused by a
+    // slider drag must not re-decode a multi-megapixel plan or re-parse the DXF.
+    val bgPath = project?.backgroundImagePath
+    val baseMap = rememberFileImageBitmap(bgPath)
+    val cadDrawing = rememberCadDrawing(bgPath)
+    // Local overrides survive project re-emissions (the DB flow re-emits on every table change and
+    // an in-flight update can still carry the PREVIOUS colour-band / alpha value), so a tap or a
+    // slider drag is never silently reverted to the old value.
     var alphaOverride by remember { mutableStateOf<Float?>(null) }
     val overlayAlpha = alphaOverride ?: project?.overlayAlpha ?: 0.72f
     var bandsOverride by remember { mutableStateOf<Int?>(null) }
     val colorBands = bandsOverride ?: project?.contourColorBands ?: 32
+    // Interactive zoom / pan of the plot (also scales the base map, keeping both in proportion).
+    var transform by remember { mutableStateOf(PlotTransform.DEFAULT) }
 
     val (field, bitmap) = rememberContour(project, measurements, colorBands)
     val pointValues = remember(measurements) { measurements.associateBy({ it.col to it.row }, { it.spl }) }
@@ -121,13 +137,33 @@ fun ContourScreen(nav: NavHostController, projectId: Long) {
                     background = baseMap,
                     overlayAlpha = overlayAlpha,
                     planReferenceMeters = p.planReferenceMeters,
+                    transform = transform,
+                    onTransformChange = { transform = it },
+                    cadDrawing = cadDrawing,
+                    cadScaleToGrid = p.planReferenceMeters != null,
                 )
             }
-            if (p.backgroundImagePath != null && baseMap == null) {
+            // Zoom / pan controls — reaching here requires interactive plot gestures.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text("缩放 ${"%.1f".format(transform.zoom)}×", style = MaterialTheme.typography.labelMedium)
+                SmallButton("+") { transform = transform.scaled(1.25f) }
+                SmallButton("−") { transform = transform.scaled(1f / 1.25f) }
+                SmallButton("适应网格") { transform = PlotTransform.DEFAULT }
                 Text(
-                    "底图加载中（如长时间未显示请重新在网格设置中选择平面图）。",
-                    style = MaterialTheme.typography.bodySmall,
+                    "双指缩放 / 拖动平移",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (p.backgroundImagePath != null && baseMap == null && cadDrawing == null) {
+                Text(
+                    "底图未能显示：该文件可能不是受支持的图片 / PDF / DXF，请到「网格设置」重新导入。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
@@ -198,16 +234,7 @@ fun ContourScreen(nav: NavHostController, projectId: Long) {
             // Legend
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp)) {
                 Text("声压级 (dB)", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(16.dp).background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                splColor(0f), splColor(0.25f), splColor(0.5f),
-                                splColor(0.75f), splColor(1f),
-                            ),
-                        ),
-                    ),
-                )
+                BandLegend(colorBands = colorBands, modifier = Modifier.fillMaxWidth())
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("%.0f".format(minV), style = MaterialTheme.typography.labelSmall)
                     Text("%.0f".format((minV + maxV) / 2), style = MaterialTheme.typography.labelSmall)
@@ -269,14 +296,46 @@ private fun rememberContour(
             val splMax = splValues.maxOrNull() ?: bg
             val splField = excess.copy(values = splValues, min = splMin, max = splMax)
             val levels = ContourBuilder.defaultLevels(splMin, splMax)
-            val grid = HeatmapRenderer.renderColorGrid(splField, levels, colorBands)
+            // 256 colour bands only look different from 32 when the palette itself is quantised to
+            // enough steps — pass the band count as the palette step count.
+            val grid = HeatmapRenderer.renderColorGrid(
+                splField, levels, colorBands, colorQuantizeStep(colorBands),
+            )
             val bmp = AndroidBitmap.createBitmap(
                 splField.resX, splField.resY, AndroidBitmap.Config.ARGB_8888
             ).apply {
-                for (i in grid.indices) setPixel(i % width, i / width, grid[i])
+                setPixels(grid, 0, width, 0, 0, width, height)
             }.asImageBitmap()
             result = splField to bmp
         }
     }
     return result
+}
+
+/**
+ * Colour legend that matches the quantised map exactly: [bands] equal slices, each painted with the
+ * colour the renderer used for that band (and therefore the actual palette step count).
+ */
+@Composable
+private fun BandLegend(colorBands: Int, modifier: Modifier = Modifier) {
+    val colors = remember(colorBands) {
+        HeatmapRenderer.bandColors(colorBands, colorQuantizeStep(colorBands))
+            .map { Color(it) }
+    }
+    Row(modifier = modifier.height(16.dp)) {
+        colors.forEach { c ->
+            Box(Modifier.weight(1f).height(16.dp).background(c))
+        }
+    }
+}
+
+@Composable
+private fun SmallButton(label: String, onClick: () -> Unit) {
+    androidx.compose.material3.OutlinedButton(
+        onClick = onClick,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+        modifier = Modifier.height(30.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+    }
 }

@@ -40,7 +40,9 @@ import androidx.navigation.NavHostController
 import com.e5lab.accamera.ACameraApplication
 import com.e5lab.accamera.data.model.Measurement
 import com.e5lab.accamera.ui.components.GridPlot
+import com.e5lab.accamera.ui.components.rememberCadDrawing
 import com.e5lab.accamera.ui.components.rememberFileImageBitmap
+import com.e5lab.accamera.domain.geom.PlotTransform
 import com.e5lab.accamera.ui.viewmodel.ProjectViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,7 +65,9 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
     val maxV = measurements.maxOfOrNull { it.spl } ?: 100.0
 
     val bg = rememberFileImageBitmap(project?.backgroundImagePath)
+    val cadDrawing = rememberCadDrawing(project?.backgroundImagePath)
     var selected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var transform by remember { mutableStateOf(PlotTransform.DEFAULT) }
 
     Scaffold(
         topBar = {
@@ -99,7 +103,7 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
             Text(
-                "点击格点录入该处声压级。请用声级计测得该点数值后填入；格点颜色表示声级高低（蓝低→红高）。",
+                "点击网格交叉点录入该处声压级（测量点位于网格线的交汇处）。请用声级计测得该点数值后填入；圆点颜色表示声级高低（蓝低→红高）。双指缩放、拖动平移。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp, 8.dp, 16.dp, 0.dp),
@@ -114,6 +118,10 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
                     minValue = minV,
                     maxValue = maxV,
                     planReferenceMeters = p.planReferenceMeters,
+                    transform = transform,
+                    onTransformChange = { transform = it },
+                    cadDrawing = cadDrawing,
+                    cadScaleToGrid = p.planReferenceMeters != null,
                     onPointTap = { c, r -> selected = c to r },
                 )
             }

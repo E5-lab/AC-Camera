@@ -26,6 +26,11 @@ import kotlinx.serialization.Serializable
  *        distance scale bar so the engineer can tell which equipment a source sits on.
  * @param overlayAlpha opacity (0..1) of the coloured SPL overlay drawn on top of the base map.
  *        Lower = more transparent, so the underlying equipment in the plan stays visible.
+ * @param baseMapOffsetX / @param baseMapOffsetY residual alignment offset of the base map,
+ *        expressed as a fraction of the plot side. Used to slide a floor plan / CAD export until
+ *        its equipment lines up with the measurement grid.
+ * @param baseMapRotationDeg rotation (degrees) applied to the base map, for plans that are not
+ *        drawn north-up.
  * @param backgroundNoiseDb ambient / background noise floor (dBA). The measured SPL at every point is
  *        treated as background + source excess; interpolation is performed on the excess and the
  *        background is added back, so quiet areas settle at the floor instead of falsely "radiating".
@@ -53,6 +58,15 @@ data class Project(
 
     // Opacity of the coloured SPL overlay on top of the base map (0.1 transparent .. 1 opaque)
     val overlayAlpha: Float = 0.72f,
+
+    // Fine alignment of the base map against the grid, applied on top of "fit to grid".
+    // Scale follows from planReferenceMeters; these two correct any residual offset so the plan's
+    // equipment lines up with the measured grid. Values are fractions of the plot side (-0.5..0.5).
+    val baseMapOffsetX: Float = 0f,
+    val baseMapOffsetY: Float = 0f,
+
+    // Base map rotation in degrees (-180..180), for CAD exports that are not north-up.
+    val baseMapRotationDeg: Float = 0f,
 
     // Ambient / background noise floor in dBA (0 = no background provided)
     val backgroundNoiseDb: Double = 0.0,

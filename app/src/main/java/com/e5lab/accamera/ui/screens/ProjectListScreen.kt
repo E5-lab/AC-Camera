@@ -242,14 +242,14 @@ private fun CreateProjectDialog(
                     OutlinedTextField(
                         value = cols,
                         onValueChange = { cols = it },
-                        label = { Text("列数") },
+                        label = { Text("列数（网格单元）") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
                     OutlinedTextField(
                         value = rows,
                         onValueChange = { rows = it },
-                        label = { Text("行数") },
+                        label = { Text("行数（网格单元）") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )

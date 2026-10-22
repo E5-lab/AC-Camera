@@ -16,6 +16,9 @@ kotlin {
                 implementation(compose.material3)
                 implementation(project(":shared"))
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+                // PDF 底图：把图纸 PDF 的第 1 页渲染成位图（安卓端用系统 PdfRenderer）。
+                // 通过反射调用，缺失时只影响 PDF 导入、不会让整个应用启动失败。
+                implementation("org.apache.pdfbox:pdfbox:2.0.31")
             }
         }
     }

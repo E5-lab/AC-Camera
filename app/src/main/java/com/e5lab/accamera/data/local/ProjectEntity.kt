@@ -24,6 +24,10 @@ data class ProjectEntity(
     val overlayAlpha: Float,
     val backgroundNoiseDb: Double,
     val contourColorBands: Int,
+    // Base-map alignment (fraction of plot side) + rotation in degrees.
+    val baseMapOffsetX: Float = 0f,
+    val baseMapOffsetY: Float = 0f,
+    val baseMapRotationDeg: Float = 0f,
 )
 
 fun Project.toEntity(): ProjectEntity = ProjectEntity(
@@ -41,6 +45,9 @@ fun Project.toEntity(): ProjectEntity = ProjectEntity(
     overlayAlpha = overlayAlpha,
     backgroundNoiseDb = backgroundNoiseDb,
     contourColorBands = contourColorBands,
+    baseMapOffsetX = baseMapOffsetX,
+    baseMapOffsetY = baseMapOffsetY,
+    baseMapRotationDeg = baseMapRotationDeg,
 )
 
 fun ProjectEntity.toModel(): Project = Project(
@@ -58,4 +65,7 @@ fun ProjectEntity.toModel(): Project = Project(
     overlayAlpha = overlayAlpha,
     backgroundNoiseDb = backgroundNoiseDb,
     contourColorBands = contourColorBands,
+    baseMapOffsetX = baseMapOffsetX,
+    baseMapOffsetY = baseMapOffsetY,
+    baseMapRotationDeg = baseMapRotationDeg,
 )
