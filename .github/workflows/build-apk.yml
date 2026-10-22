@@ -171,8 +171,21 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Install NSIS (required for the EXE installer)
-        run: choco install nsis -y
+      # jpackage on Windows needs WiX Toolset for the MSI and Inno Setup for the EXE.
+      # (NSIS is NOT used by jpackage's installer backends, so it must not be the only tool installed.)
+      - name: Install WiX Toolset (MSI) + Inno Setup (EXE) for jpackage
+        shell: pwsh
+        run: |
+          choco install wixtoolset -y
+          choco install innosetup -y
+          # Make both toolchains discoverable by jpackage (it spawns candle/light/iscc)
+          $wixBin = (Get-ChildItem -Path "C:\Program Files (x86)\WiX Toolset*\bin","C:\Program Files\WiX Toolset*\bin" -ErrorAction SilentlyContinue | Select-Object -First 1)
+          if ($wixBin) { $wixBin.FullName | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8; Write-Host "WiX bin: $($wixBin.FullName)" } else { Write-Host "!! WiX bin not found" }
+          $inno = (Get-ChildItem -Path "C:\Program Files (x86)\Inno Setup*","C:\Program Files\Inno Setup*" -ErrorAction SilentlyContinue | Select-Object -First 1)
+          if ($inno) { $inno.FullName | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8; Write-Host "Inno Setup: $($inno.FullName)" } else { Write-Host "!! Inno Setup not found" }
+          Write-Host "--- tool discovery ---"
+          where.exe candle; where.exe light; where.exe iscc
+          Write-Host "done"
 
       - name: Build MSI installer
         id: buildmsi
@@ -246,6 +259,21 @@ jobs:
             desktop-msi.log
             desktop-exe.log
             desktop-build.log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish jpackage detail logs to release (always, best-effort)
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-logs
+          name: CI Build Logs
+          prerelease: true
+          force: true
+          fail_on_unmatched_files: false
+          files: |
+            desktopApp/build/compose/logs/packageMsi/*.txt
+            desktopApp/build/compose/logs/packageExe/*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
