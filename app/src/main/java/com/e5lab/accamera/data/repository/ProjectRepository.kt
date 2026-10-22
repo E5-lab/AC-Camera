@@ -113,7 +113,6 @@ class ProjectRepository(
             }
             file
         }
-    }
 
     // ---- JSON export / import (cross-platform with the Desktop client) ----
     /**
