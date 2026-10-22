@@ -424,35 +424,42 @@ fun ContourTab(repo: DesktopRepository, project: Project, measurements: List<Mea
                     busy = true
                     message = null
                     error = null
-                    scope.launch(Dispatchers.IO) {
+                    // Launch on the Compose UI context (rememberCoroutineScope) and hop to IO only
+                    // for the blocking work. NEVER touch Dispatchers.Main on Desktop: unlike Android,
+                    // the JVM runtime has no Main dispatcher module — it throws
+                    // "Module with the Main dispatcher is missing" at runtime, exactly the error
+                    // dialog seen when importing a base map. After withContext(Dispatchers.IO)
+                    // returns, we are back on the UI context automatically, so state writes are safe.
+                    scope.launch {
                         try {
-                            val stored = DesktopBackdrop.store(file, project.id)
-                            val resolved = if (DesktopBackdrop.isPdf(stored.absolutePath)) {
-                                DesktopBackdrop.renderPdfFirstPage(stored)
-                            } else {
-                                stored
-                            }
-                            val detail = when {
-                                DesktopBackdrop.isCad(resolved.absolutePath) -> {
-                                    val d = CadReader.read(resolved.readText())
-                                        ?: error("DXF 中未找到可用的线图")
-                                    "CAD 线图 ${d.polygons.size} 段 / 约 ${d.vertexCount} 个顶点"
+                            // Do all blocking work on IO, then land back on the UI context to
+                            // update state and persist (see the Dispatchers.Main note above).
+                            val (resolved, detail) = withContext(Dispatchers.IO) {
+                                val stored = DesktopBackdrop.store(file, project.id)
+                                val done = if (DesktopBackdrop.isPdf(stored.absolutePath)) {
+                                    DesktopBackdrop.renderPdfFirstPage(stored)
+                                } else {
+                                    stored
                                 }
-                                DesktopBackdrop.isPdf(stored.absolutePath) ->
-                                    "PDF 已渲染第 1 页为位图"
-                                else -> "图片已导入"
+                                val what = when {
+                                    DesktopBackdrop.isCad(done.absolutePath) -> {
+                                        val d = CadReader.read(done.readText())
+                                            ?: error("DXF 中未找到可用的线图")
+                                        "CAD 线图 ${d.polygons.size} 段 / 约 ${d.vertexCount} 个顶点"
+                                    }
+                                    DesktopBackdrop.isPdf(stored.absolutePath) ->
+                                        "PDF 已渲染第 1 页为位图"
+                                    else -> "图片已导入"
+                                }
+                                done to what
                             }
-                            withContext(Dispatchers.Main) {
-                                baseMapPath = resolved.absolutePath
-                                message = detail
-                                repo.updateProject(project.copy(backgroundImagePath = resolved.absolutePath))
-                            }
+                            baseMapPath = resolved.absolutePath
+                            message = detail
+                            repo.updateProject(project.copy(backgroundImagePath = resolved.absolutePath))
                         } catch (t: Throwable) {
-                            withContext(Dispatchers.Main) {
-                                error = t.message ?: t.toString()
-                            }
+                            error = t.message ?: t.toString()
                         } finally {
-                            withContext(Dispatchers.Main) { busy = false }
+                            busy = false
                         }
                     }
                 }
