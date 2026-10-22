@@ -28,6 +28,8 @@ data class ProjectEntity(
     val baseMapOffsetX: Float = 0f,
     val baseMapOffsetY: Float = 0f,
     val baseMapRotationDeg: Float = 0f,
+    // Independent base-map scale relative to the grid (1 = contain-fit).
+    val baseMapScale: Float = 1f,
 )
 
 fun Project.toEntity(): ProjectEntity = ProjectEntity(
@@ -48,6 +50,7 @@ fun Project.toEntity(): ProjectEntity = ProjectEntity(
     baseMapOffsetX = baseMapOffsetX,
     baseMapOffsetY = baseMapOffsetY,
     baseMapRotationDeg = baseMapRotationDeg,
+    baseMapScale = baseMapScale,
 )
 
 fun ProjectEntity.toModel(): Project = Project(
@@ -68,4 +71,5 @@ fun ProjectEntity.toModel(): Project = Project(
     baseMapOffsetX = baseMapOffsetX,
     baseMapOffsetY = baseMapOffsetY,
     baseMapRotationDeg = baseMapRotationDeg,
+    baseMapScale = baseMapScale,
 )

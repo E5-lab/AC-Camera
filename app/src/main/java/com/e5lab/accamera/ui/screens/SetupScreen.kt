@@ -149,6 +149,7 @@ fun SetupScreen(nav: NavHostController, projectId: Long) {
                             baseMapOffsetX = p.baseMapOffsetX,
                             baseMapOffsetY = p.baseMapOffsetY,
                             baseMapRotationDeg = p.baseMapRotationDeg,
+                            baseMapScale = p.baseMapScale,
                             createdAt = p.createdAt,
                         )
                         vm.updateProject(updated)

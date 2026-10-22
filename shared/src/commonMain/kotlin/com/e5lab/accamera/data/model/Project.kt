@@ -68,6 +68,10 @@ data class Project(
     // Base map rotation in degrees (-180..180), for CAD exports that are not north-up.
     val baseMapRotationDeg: Float = 0f,
 
+    // Independent base-map scale relative to the grid (1 = contain-fit into the surveyed area).
+    // Lets the user enlarge / shrink the plan on its own so its equipment lines up with the grid.
+    val baseMapScale: Float = 1f,
+
     // Ambient / background noise floor in dBA (0 = no background provided)
     val backgroundNoiseDb: Double = 0.0,
 

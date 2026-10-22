@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +38,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -404,6 +406,11 @@ fun ContourTab(repo: DesktopRepository, project: Project, measurements: List<Mea
     var overlayAlpha by remember { mutableFloatStateOf(project.overlayAlpha) }
     var colorBands by remember { mutableIntStateOf(project.contourColorBands.coerceAtLeast(2)) }
     var baseMapPath by remember { mutableStateOf(project.backgroundImagePath) }
+    // Independent base-map alignment (see the 底图对齐 row): local state mirrors the persisted
+    // project values; the buttons write both so the plot updates immediately and survives restart.
+    var bmScale by remember { mutableFloatStateOf(project.baseMapScale) }
+    var bmOffX by remember { mutableFloatStateOf(project.baseMapOffsetX) }
+    var bmOffY by remember { mutableFloatStateOf(project.baseMapOffsetY) }
     var transform by remember { mutableStateOf(PlotTransform.DEFAULT) }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -486,14 +493,21 @@ fun ContourTab(repo: DesktopRepository, project: Project, measurements: List<Mea
             Text("色阶")
             BAND_CHOICES.forEach { b ->
                 val selected = colorBands == b
+                // Auto-width: the fixed 58.dp box truncated 3-digit band counts (256 → "2"/"5"/"6"
+                // wrapped onto separate lines), which looked like nonsense buttons in the toolbar.
                 OutlinedButton(
                     onClick = {
                         colorBands = b
                         repo.updateProject(project.copy(contourColorBands = b))
                     },
-                    modifier = Modifier.size(58.dp, 36.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.height(36.dp),
                 ) {
-                    Text(if (selected) "[$b]" else "$b", fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                    Text(
+                        if (selected) "[$b]" else "$b",
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1,
+                    )
                 }
             }
         }
@@ -507,15 +521,55 @@ fun ContourTab(repo: DesktopRepository, project: Project, measurements: List<Mea
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        // Independent base-map alignment: resize / slide ONLY the plan against the grid so the
+        // two layers line up (the SPL layer never moves). Persisted with the project.
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("底图对齐", fontWeight = FontWeight.Bold)
+            TextButton(onClick = {
+                bmScale = bmScale * 1.1f
+                repo.updateProject(project.copy(baseMapScale = bmScale, baseMapOffsetX = bmOffX, baseMapOffsetY = bmOffY))
+            }) { Text("底图+") }
+            TextButton(onClick = {
+                bmScale = bmScale / 1.1f
+                repo.updateProject(project.copy(baseMapScale = bmScale, baseMapOffsetX = bmOffX, baseMapOffsetY = bmOffY))
+            }) { Text("底图−") }
+            TextButton(onClick = {
+                bmOffX = (bmOffX - 0.02f).coerceIn(-0.5f, 0.5f)
+                repo.updateProject(project.copy(baseMapScale = bmScale, baseMapOffsetX = bmOffX, baseMapOffsetY = bmOffY))
+            }) { Text("←") }
+            TextButton(onClick = {
+                bmOffX = (bmOffX + 0.02f).coerceIn(-0.5f, 0.5f)
+                repo.updateProject(project.copy(baseMapScale = bmScale, baseMapOffsetX = bmOffX, baseMapOffsetY = bmOffY))
+            }) { Text("→") }
+            TextButton(onClick = {
+                bmOffY = (bmOffY - 0.02f).coerceIn(-0.5f, 0.5f)
+                repo.updateProject(project.copy(baseMapScale = bmScale, baseMapOffsetX = bmOffX, baseMapOffsetY = bmOffY))
+            }) { Text("↑") }
+            TextButton(onClick = {
+                bmOffY = (bmOffY + 0.02f).coerceIn(-0.5f, 0.5f)
+                repo.updateProject(project.copy(baseMapScale = bmScale, baseMapOffsetX = bmOffX, baseMapOffsetY = bmOffY))
+            }) { Text("↓") }
+            TextButton(onClick = {
+                bmScale = 1f; bmOffX = 0f; bmOffY = 0f
+                repo.updateProject(project.copy(baseMapScale = 1f, baseMapOffsetX = 0f, baseMapOffsetY = 0f))
+            }) { Text("重置") }
+            Text(
+                "缩放 ${"%.2f".format(bmScale)}×  偏移 ${"%.2f".format(bmOffX)} / ${"%.2f".format(bmOffY)}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         Spacer(Modifier.size(6.dp))
         if (field != null) {
             ContourCanvas(
                 project, field, imageMap, cad, overlayAlpha, colorBands,
                 transform = transform, onTransformChange = { transform = it },
+                baseMapScale = bmScale,
+                baseMapOffsetX = bmOffX,
+                baseMapOffsetY = bmOffY,
                 measurements = measurements,
                 modifier = Modifier.weight(1f),
             )
-            BandLegend(colorBands, Modifier.fillMaxWidth().padding(top = 6.dp))
+            BandLegend(colorBands, field.min, field.max, Modifier.fillMaxWidth().padding(top = 6.dp))
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("请先在\"数据录入\"中填入测点数据。")
@@ -558,6 +612,9 @@ fun ContourCanvas(
     colorBands: Int,
     transform: PlotTransform,
     onTransformChange: (PlotTransform) -> Unit,
+    baseMapScale: Float = 1f,
+    baseMapOffsetX: Float = 0f,
+    baseMapOffsetY: Float = 0f,
     measurements: List<Measurement> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
@@ -577,6 +634,12 @@ fun ContourCanvas(
     }
     var size by remember { mutableStateOf(IntSize.Zero) }
     var dragAccum by remember { mutableStateOf(Offset.Zero) }
+    // pointerInput launches once per key change, so its lambdas capture the transform from that
+    // moment. Reading the parameter directly means a drag after zooming pans from the PRE-zoom
+    // transform — the map visibly snapped back (user report: "拖动会立马回到缩放前").
+    // rememberUpdatedState keeps the handlers reading the freshest value without restarting.
+    val latestTransform by rememberUpdatedState(transform)
+    val latestOnTransformChange by rememberUpdatedState(onTransformChange)
 
     Canvas(
         modifier
@@ -594,8 +657,8 @@ fun ContourCanvas(
                         if (viewport.width <= 0f || viewport.height <= 0f) return@detectDragGestures
                         val d = dragAccum
                         dragAccum = Offset.Zero
-                        onTransformChange(
-                            transform.panBy(d.x / viewport.width, d.y / viewport.height)
+                        latestOnTransformChange(
+                            latestTransform.panBy(d.x / viewport.width, d.y / viewport.height)
                         )
                     },
                 )
@@ -611,12 +674,12 @@ fun ContourCanvas(
                             change.consume()
                             val viewport = plotViewport(size, nCols, nRows, PAD)
                             if (viewport.width > 0f && viewport.height > 0f) {
-                                val ax = ((change.position.x - viewport.left) / viewport.width)
-                                    .coerceIn(0f, 1f)
-                                val ay = ((change.position.y - viewport.top) / viewport.height)
-                                    .coerceIn(0f, 1f)
-                                val factor = if (scroll < 0) 1.15f else 1f / 1.15f
-                                onTransformChange(transform.zoomAt(ax, ay, factor))
+                            val ax = ((change.position.x - viewport.left) / viewport.width)
+                                .coerceIn(0f, 1f)
+                            val ay = ((change.position.y - viewport.top) / viewport.height)
+                                .coerceIn(0f, 1f)
+                            val factor = if (scroll < 0) 1.15f else 1f / 1.15f
+                            latestOnTransformChange(latestTransform.zoomAt(ax, ay, factor))
                             }
                         }
                     }
@@ -638,6 +701,9 @@ fun ContourCanvas(
             planRef = planRef,
             pointValues = pointValues,
             flagged = flagged,
+            baseMapScale = baseMapScale,
+            baseMapOffsetX = baseMapOffsetX,
+            baseMapOffsetY = baseMapOffsetY,
         )
     }
 }
@@ -660,6 +726,9 @@ fun DrawScope.drawSurveyWorld(
     drawPoints: Boolean = true,
     pointValues: Map<Pair<Int, Int>, Double> = emptyMap(),
     flagged: Set<Pair<Int, Int>> = emptySet(),
+    baseMapScale: Float = 1f,
+    baseMapOffsetX: Float = 0f,
+    baseMapOffsetY: Float = 0f,
 ) {
     val viewport = plotViewport(size, nCols, nRows, PAD)
     val cell = min(viewport.width / nCols, viewport.height / nRows)
@@ -668,11 +737,13 @@ fun DrawScope.drawSurveyWorld(
     val world = worldRect(viewport, nCols, nRows, cell, t)
 
     clipRect(viewport.left, viewport.top, viewport.right, viewport.bottom) {
-        // 1. base map (vector CAD preferred over a raster photo)
+        // 1. base map (vector CAD preferred over a raster photo); the plan gets its OWN scale /
+        // offset on top of the shared view transform so the user can align the two layers.
         if (cad != null && !cad.isEmpty) {
-            drawCad(cad, world)
+            drawCad(cad, alignBaseMap(world, world, baseMapScale, baseMapOffsetX, baseMapOffsetY))
         } else if (imageMap != null && imageMap.width > 0 && imageMap.height > 0) {
-            val dst = containFit(world, imageMap.width.toFloat() / imageMap.height.toFloat())
+            val fitted = containFit(world, imageMap.width.toFloat() / imageMap.height.toFloat())
+            val dst = alignBaseMap(fitted, world, baseMapScale, baseMapOffsetX, baseMapOffsetY)
             drawImage(
                 imageMap,
                 dstOffset = IntOffset(dst.left.toInt(), dst.top.toInt()),
@@ -767,6 +838,23 @@ fun containFit(outer: Rect, aspect: Float): Rect {
     return Rect(left, top, left + w, top + h)
 }
 
+/**
+ * Independent base-map alignment on top of a contain-fitted rectangle: scales around the fitted
+ * centre, then slides by (offX, offY) fractions of the surveyed-area size. Scale 1 + zero offsets
+ * reproduces the plain fit exactly — so existing projects render unchanged.
+ */
+fun alignBaseMap(fitted: Rect, world: Rect, scale: Float, offX: Float, offY: Float): Rect {
+    val s = if (scale.isFinite() && scale > 0f) scale.coerceIn(0.2f, 5f) else 1f
+    if (s == 1f && offX == 0f && offY == 0f) return fitted
+    val cx = fitted.left + fitted.width / 2f
+    val cy = fitted.top + fitted.height / 2f
+    val w = fitted.width * s
+    val h = fitted.height * s
+    val dx = (if (offX.isFinite()) offX.coerceIn(-0.5f, 0.5f) else 0f) * world.width
+    val dy = (if (offY.isFinite()) offY.coerceIn(-0.5f, 0.5f) else 0f) * world.height
+    return Rect(cx - w / 2f + dx, cy - h / 2f + dy, cx + w / 2f + dx, cy + h / 2f + dy)
+}
+
 fun plotViewport(size: IntSize, nCols: Int, nRows: Int, pad: Float): Rect {
     val availW = (size.width - 2 * pad).coerceAtLeast(1f)
     val availH = (size.height - 2 * pad).coerceAtLeast(1f)
@@ -790,17 +878,31 @@ fun worldRect(viewport: Rect, nCols: Int, nRows: Int, cell: Float, t: PlotTransf
 }
 
 @Composable
-fun BandLegend(colorBands: Int, modifier: Modifier = Modifier) {
+fun BandLegend(colorBands: Int, splMin: Double, splMax: Double, modifier: Modifier = Modifier) {
     val colors = remember(colorBands) {
         HeatmapRenderer.bandColors(colorBands, quantizeStep(colorBands)).map { Color(it) }
     }
     Column(modifier) {
         Text(
-            "色阶 $colorBands 级（声压级由低到高：蓝 → 青 → 绿 → 黄 → 红）",
+            "声压级 (dB) · 色阶 $colorBands 级（由低到高：蓝 → 青 → 绿 → 黄 → 红）",
             style = MaterialTheme.typography.labelSmall,
         )
         Row(Modifier.fillMaxWidth().size(0.dp, 14.dp)) {
             colors.forEach { c -> Box(Modifier.weight(1f).fillMaxSize().background(c)) }
+        }
+        // Numeric scale under the colour ramp so each colour zone can be read as an SPL value
+        // (user report: "无法判断当前每个区域的具体声压级大小"). min / quarter / mid / 3-quarter / max.
+        Row(Modifier.fillMaxWidth()) {
+            val lo = "%.0f".format(splMin)
+            val hi = "%.0f".format(splMax)
+            val q1 = "%.0f".format(splMin + (splMax - splMin) * 0.25)
+            val mid = "%.0f".format((splMin + splMax) / 2)
+            val q3 = "%.0f".format(splMin + (splMax - splMin) * 0.75)
+            Text(lo, style = MaterialTheme.typography.labelSmall)
+            Text(q1, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(mid, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(q3, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(hi, style = MaterialTheme.typography.labelSmall)
         }
     }
 }

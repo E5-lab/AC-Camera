@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -51,6 +52,9 @@ fun GridPlot(
     onTransformChange: (PlotTransform) -> Unit = {},
     cadDrawing: CadDrawing? = null,
     cadScaleToGrid: Boolean = false,
+    baseMapScale: Float = 1f,
+    baseMapOffsetX: Float = 0f,
+    baseMapOffsetY: Float = 0f,
     onPointTap: (col: Int, row: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -60,16 +64,22 @@ fun GridPlot(
     // cols/rows are CELL counts -> (cols+1) x (rows+1) corner points, cols x rows cells.
     val nCols = cols.coerceAtLeast(1)
     val nRows = rows.coerceAtLeast(1)
+    // Gesture handlers are launched once per key change, so they capture the transform value from
+    // that moment. Reading the parameter directly would zoom/pan from a STALE value (the map
+    // snapping back to its pre-zoom state when dragged); rememberUpdatedState keeps the handler
+    // reading the freshest transform without restarting the gesture detector.
+    val latestTransform by rememberUpdatedState(transform)
+    val latestOnTransformChange by rememberUpdatedState(onTransformChange)
 
     Box(
         modifier.fillMaxSize()
             .onGloballyPositioned { size = it.size }
-            .pointerInput(cols, rows, transform) {
+            .pointerInput(cols, rows) {
                 detectTapGestures { offset ->
                     if (size == IntSize.Zero || cols <= 0 || rows <= 0) return@detectTapGestures
                     val viewport = plotViewport(size, nCols, nRows, pad)
                     val cell = min(viewport.width / nCols, viewport.height / nRows)
-                    val field = worldRect(viewport, nCols, nRows, cell, transform.clamped())
+                    val field = worldRect(viewport, nCols, nRows, cell, latestTransform.clamped())
                     val cw = field.width / nCols
                     val ch = field.height / nRows
                     var best: Pair<Int, Int>? = null
@@ -93,12 +103,12 @@ fun GridPlot(
                 detectTransformGestures { _, pan, zoom, _ ->
                     val viewport = plotViewport(size, nCols, nRows, pad)
                     if (viewport.width <= 0f || viewport.height <= 0f) return@detectTransformGestures
-                    var next = transform
+                    var next = latestTransform
                     if (zoom != 1f) next = next.zoomAt(0.5f, 0.5f, zoom)
                     if (pan != Offset.Zero) {
                         next = next.panBy(pan.x / viewport.width, pan.y / viewport.height)
                     }
-                    if (next != transform) onTransformChange(next)
+                    if (next != latestTransform) latestOnTransformChange(next)
                 }
             },
     ) {
@@ -111,7 +121,10 @@ fun GridPlot(
             val field = worldRect(viewport, nCols, nRows, cell, t)
 
             clipRect(viewport.left, viewport.top, viewport.right, viewport.bottom) {
-                drawBaseMap(viewport, nCols, nRows, cell, t, background, cadDrawing, cadScaleToGrid)
+                drawBaseMap(
+                    viewport, nCols, nRows, cell, t, background, cadDrawing, cadScaleToGrid,
+                    baseMapScale, baseMapOffsetX, baseMapOffsetY,
+                )
 
                 // Grid line work: the lattice of cells.
                 val lineColor = if (background != null || cadDrawing != null) {
@@ -159,7 +172,9 @@ fun GridPlot(
 
 /**
  * Shared base-map painter: a vector CAD drawing wins over a raster photo (a project has one or the
- * other), and both are pushed through the same [PlotTransform] as the grid.
+ * other), and both are pushed through the same [PlotTransform] as the grid. On top of the shared
+ * view transform, [baseMapScale] / [baseMapOffsetX] / [baseMapOffsetY] let the user align the plan
+ * with the grid INDEPENDENTLY (resizing / sliding only the base map, never the SPL layer).
  */
 fun DrawScope.drawBaseMap(
     viewport: Rect,
@@ -170,19 +185,23 @@ fun DrawScope.drawBaseMap(
     background: ImageBitmap?,
     cadDrawing: CadDrawing?,
     cadScaleToGrid: Boolean,
+    baseMapScale: Float = 1f,
+    baseMapOffsetX: Float = 0f,
+    baseMapOffsetY: Float = 0f,
 ) {
     val world = worldRect(viewport, nCols, nRows, cell, t)
     if (cadDrawing != null && !cadDrawing.isEmpty) {
         val dst = if (cadScaleToGrid) {
             world
         } else {
-            containFit(world, cadDrawing.aspectRatio)
+            alignBaseMap(containFit(world, cadDrawing.aspectRatio), world, baseMapScale, baseMapOffsetX, baseMapOffsetY)
         }
         drawCadDrawing(cadDrawing, dst)
         return
     }
     if (background == null || background.width <= 0 || background.height <= 0) return
-    val dst = containFit(world, background.width.toFloat() / background.height.toFloat())
+    val fitted = containFit(world, background.width.toFloat() / background.height.toFloat())
+    val dst = alignBaseMap(fitted, world, baseMapScale, baseMapOffsetX, baseMapOffsetY)
     drawImage(
         background,
         dstOffset = IntOffset(dst.left.toInt(), dst.top.toInt()),
@@ -191,6 +210,23 @@ fun DrawScope.drawBaseMap(
             dst.height.toInt().coerceAtLeast(1),
         ),
     )
+}
+
+/**
+ * Applies the independent base-map alignment on top of a contain-fitted rectangle: scales around
+ * the fitted centre, then slides by (offX, offY) fractions of the surveyed-area size. A scale of 1
+ * with zero offsets reproduces the plain contain-fit exactly.
+ */
+fun alignBaseMap(fitted: Rect, world: Rect, scale: Float, offX: Float, offY: Float): Rect {
+    val s = if (scale.isFinite() && scale > 0f) scale.coerceIn(0.2f, 5f) else 1f
+    if (s == 1f && offX == 0f && offY == 0f) return fitted
+    val cx = fitted.left + fitted.width / 2f
+    val cy = fitted.top + fitted.height / 2f
+    val w = fitted.width * s
+    val h = fitted.height * s
+    val dx = (if (offX.isFinite()) offX.coerceIn(-0.5f, 0.5f) else 0f) * world.width
+    val dy = (if (offY.isFinite()) offY.coerceIn(-0.5f, 0.5f) else 0f) * world.height
+    return Rect(cx - w / 2f + dx, cy - h / 2f + dy, cx + w / 2f + dx, cy + h / 2f + dy)
 }
 
 /** Largest rectangle of [aspect] (w/h) centred inside [outer]. */

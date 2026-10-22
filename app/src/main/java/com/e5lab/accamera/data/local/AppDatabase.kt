@@ -9,11 +9,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ProjectEntity::class, MeasurementEntity::class],
-    // v3: Project gained baseMapOffsetX/baseMapOffsetY/baseMapRotationDeg (base-map alignment).
+    // v3: + baseMapOffsetX/Y/baseMapRotationDeg; v4: + baseMapScale (independent plan scaling).
     // NOTE: adding/removing an entity field REQUIRES bumping this version, otherwise installed
     // builds crash on launch. fallbackToDestructiveMigration() wipes data, so migration is done
     // in place with ADD COLUMN defaults below.
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,6 +36,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v3 -> v4: adds the independent base-map scale column. Default 1 reproduces the previous
+         * contain-fit behaviour exactly.
+         */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE projects ADD COLUMN baseMapScale REAL NOT NULL DEFAULT 1")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -43,7 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "ac_camera.db"
                 )
-                    .addMigrations(MIGRATION_2_3)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

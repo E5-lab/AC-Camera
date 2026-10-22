@@ -122,6 +122,9 @@ fun SurveyScreen(nav: NavHostController, projectId: Long) {
                     onTransformChange = { transform = it },
                     cadDrawing = cadDrawing,
                     cadScaleToGrid = p.planReferenceMeters != null,
+                    baseMapScale = p.baseMapScale,
+                    baseMapOffsetX = p.baseMapOffsetX,
+                    baseMapOffsetY = p.baseMapOffsetY,
                     onPointTap = { c, r -> selected = c to r },
                 )
             }

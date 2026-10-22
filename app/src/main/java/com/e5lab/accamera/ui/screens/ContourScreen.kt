@@ -93,6 +93,21 @@ fun ContourScreen(nav: NavHostController, projectId: Long) {
     val colorBands = bandsOverride ?: project?.contourColorBands ?: 32
     // Interactive zoom / pan of the plot (also scales the base map, keeping both in proportion).
     var transform by remember { mutableStateOf(PlotTransform.DEFAULT) }
+    // Independent base-map alignment (overrides survive project re-emissions, like alpha/bands).
+    // Lets the user resize / slide ONLY the plan so its equipment lines up with the grid.
+    var bmScaleOverride by remember { mutableStateOf<Float?>(null) }
+    var bmOffXOverride by remember { mutableStateOf<Float?>(null) }
+    var bmOffYOverride by remember { mutableStateOf<Float?>(null) }
+    val bmScale = (bmScaleOverride ?: project?.baseMapScale ?: 1f).coerceIn(0.2f, 5f)
+    val bmOffX = (bmOffXOverride ?: project?.baseMapOffsetX ?: 0f).coerceIn(-0.5f, 0.5f)
+    val bmOffY = (bmOffYOverride ?: project?.baseMapOffsetY ?: 0f).coerceIn(-0.5f, 0.5f)
+
+    fun persistBaseMapAlign() {
+        val p = project ?: return
+        vm.updateProject(
+            p.copy(baseMapScale = bmScale, baseMapOffsetX = bmOffX, baseMapOffsetY = bmOffY),
+        )
+    }
 
     val (field, bitmap) = rememberContour(project, measurements, colorBands)
     val pointValues = remember(measurements) { measurements.associateBy({ it.col to it.row }, { it.spl }) }
@@ -141,6 +156,9 @@ fun ContourScreen(nav: NavHostController, projectId: Long) {
                     onTransformChange = { transform = it },
                     cadDrawing = cadDrawing,
                     cadScaleToGrid = p.planReferenceMeters != null,
+                    baseMapScale = bmScale,
+                    baseMapOffsetX = bmOffX,
+                    baseMapOffsetY = bmOffY,
                 )
             }
             // Zoom / pan controls — reaching here requires interactive plot gestures.
@@ -158,6 +176,35 @@ fun ContourScreen(nav: NavHostController, projectId: Long) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            // Independent base-map alignment: resize / slide ONLY the plan against the grid so the
+            // two layers line up. Changes persist to the project immediately.
+            if (p.backgroundImagePath != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        "底图对齐",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    SmallButton("底图+") {
+                        bmScaleOverride = bmScale * 1.1f; persistBaseMapAlign()
+                    }
+                    SmallButton("底图−") {
+                        bmScaleOverride = bmScale / 1.1f; persistBaseMapAlign()
+                    }
+                    SmallButton("←") { bmOffXOverride = bmOffX - 0.02f; persistBaseMapAlign() }
+                    SmallButton("→") { bmOffXOverride = bmOffX + 0.02f; persistBaseMapAlign() }
+                    SmallButton("↑") { bmOffYOverride = bmOffY - 0.02f; persistBaseMapAlign() }
+                    SmallButton("↓") { bmOffYOverride = bmOffY + 0.02f; persistBaseMapAlign() }
+                    SmallButton("重置") {
+                        bmScaleOverride = 1f; bmOffXOverride = 0f; bmOffYOverride = 0f
+                        persistBaseMapAlign()
+                    }
+                }
             }
             if (p.backgroundImagePath != null && baseMap == null && cadDrawing == null) {
                 Text(

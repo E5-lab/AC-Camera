@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -52,6 +53,9 @@ fun ContourPlot(
     onTransformChange: (PlotTransform) -> Unit = {},
     cadDrawing: CadDrawing? = null,
     cadScaleToGrid: Boolean = false,
+    baseMapScale: Float = 1f,
+    baseMapOffsetX: Float = 0f,
+    baseMapOffsetY: Float = 0f,
     modifier: Modifier = Modifier,
 ) {
     var size by remember { mutableStateOf(IntSize.Zero) }
@@ -60,6 +64,11 @@ fun ContourPlot(
     // cols/rows are CELL counts -> (cols+1) x (rows+1) intersection points.
     val nCols = cols.coerceAtLeast(1)
     val nRows = rows.coerceAtLeast(1)
+    // Gesture handlers capture whatever value `transform` had when pointerInput launched; without
+    // rememberUpdatedState a drag after zooming reads the PRE-zoom transform and the map visibly
+    // snaps back (bug report: "当前拖动会立马回到缩放前").
+    val latestTransform by rememberUpdatedState(transform)
+    val latestOnTransformChange by rememberUpdatedState(onTransformChange)
 
     Box(
         modifier.fillMaxSize()
@@ -69,12 +78,12 @@ fun ContourPlot(
                     val viewport = plotViewport(size, nCols, nRows, pad)
                     if (viewport.width <= 0f || viewport.height <= 0f) return@detectTransformGestures
                     // Gesture deltas are in pixels; the transform works in viewport fractions.
-                    var next = transform
+                    var next = latestTransform
                     if (zoom != 1f) next = next.zoomAt(0.5f, 0.5f, zoom)
                     if (pan != Offset.Zero) {
                         next = next.panBy(pan.x / viewport.width, pan.y / viewport.height)
                     }
-                    if (next != transform) onTransformChange(next)
+                    if (next != latestTransform) latestOnTransformChange(next)
                 }
             },
     ) {
@@ -95,6 +104,7 @@ fun ContourPlot(
                 drawBaseMap(
                     viewport, nCols, nRows, cell, t,
                     background, cadDrawing, cadScaleToGrid,
+                    baseMapScale, baseMapOffsetX, baseMapOffsetY,
                 )
 
                 // 2. SPL heatmap stretched over the surveyed area (same transform -> aligned)
