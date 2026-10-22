@@ -54,6 +54,22 @@
             <button data-czoom="out">－</button>
             <button data-czoom="fit">适应网格</button>
           </div>
+          <div class="toolbar">
+            <button id="btn-basemap" class="primary">导入底图（图片 / PDF / DXF）</button>
+            <span id="basemap-hint" class="hint"></span>
+            <span class="spacer"></span>
+            <label>底图对齐</label>
+            <button data-bm="in">底图＋</button>
+            <button data-bm="out">底图－</button>
+            <button data-bm="left">←</button>
+            <button data-bm="right">→</button>
+            <button data-bm="up">↑</button>
+            <button data-bm="down">↓</button>
+            <button data-bm="reset">重置</button>
+            <span class="spacer"></span>
+            <button id="btn-noise">识别噪声源</button>
+            <span id="noise-hint" class="hint"></span>
+          </div>
           <div id="contour-canvas-wrap" class="canvas-wrap"></div>
           <div id="contour-legend"></div>
         </section>
@@ -69,6 +85,9 @@
               <label>列间距 (m) <input name="spacingX" type="number" step="0.1" min="0.1" required /></label>
               <label>行间距 (m) <input name="spacingY" type="number" step="0.1" min="0.1" required /></label>
             </div>
+            <label>底图参照宽度 (m，平面图实际跨越的东西向宽度；用于按真实比例显示并绘制比例尺)
+              <input name="planReferenceMeters" type="number" step="0.1" min="0" />
+            </label>
             <label>背景噪声 / 底噪 (dBA) <input name="backgroundNoiseDb" type="number" step="0.1" min="0" /></label>
             <button class="primary" type="submit">保存设置</button>
           </form>
@@ -94,6 +113,7 @@
     </form>
   </dialog>
   <input type="file" id="import-file" accept=".json" hidden />
+  <input type="file" id="basemap-file" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf,.dxf" hidden />
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

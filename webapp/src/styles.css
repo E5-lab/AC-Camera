@@ -9,6 +9,10 @@
 
 * { box-sizing: border-box; }
 
+/* Our layout classes set display on the same elements that use the hidden attribute;
+   without this rule the UA's [hidden]{display:none} loses and ALL tab pages stack visibly. */
+[hidden] { display: none !important; }
+
 html, body, #app {
   height: 100%;
   margin: 0;
@@ -142,7 +146,7 @@ body {
 
 .canvas-wrap {
   flex: 1;
-  min-height: 300px;
+  min-height: 420px;
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;

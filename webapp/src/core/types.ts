@@ -18,6 +18,10 @@ export interface Project {
   baseMapScale: number;
   backgroundNoiseDb: number;
   contourColorBands: number;
+  /** 底图（图片 / PDF 首页渲染结果）的 dataURL，随项目 JSON 一起保存 */
+  backgroundImageData?: string | null;
+  /** CAD（DXF）线图原文，随项目 JSON 一起保存（矢量绘制，不栅格化） */
+  backgroundDxfText?: string | null;
 }
 
 export interface Measurement {
