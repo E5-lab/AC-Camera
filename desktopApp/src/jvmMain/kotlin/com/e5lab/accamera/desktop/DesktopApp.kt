@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -98,6 +99,9 @@ fun App(repo: DesktopRepository) {
 
 // ───────────────────────── Project list ─────────────────────────
 
+// Material3's TopAppBar / TabRow are still marked @ExperimentalMaterial3Api, and opting in is an
+// ERROR (not a warning) in this toolchain — without @OptIn the whole module fails to compile.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectListScreen(repo: DesktopRepository, onOpen: (Long) -> Unit) {
     val projects by repo.projects.collectAsState()
@@ -195,6 +199,7 @@ fun NumberField(label: String, value: String, onChange: (String) -> Unit) {
 
 // ───────────────────────── Project detail ─────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectDetailScreen(repo: DesktopRepository, projectId: Long, onBack: () -> Unit) {
     val project = repo.getProject(projectId) ?: run { onBack(); return }
@@ -391,6 +396,7 @@ private val BAND_CHOICES = listOf(8, 16, 24, 32, 64, 128, 256)
 private fun quantizeStep(bands: Int): Int =
     bands.coerceIn(HeatmapRenderer.MIN_PALETTE_STEPS, HeatmapRenderer.MAX_PALETTE_STEPS)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContourTab(repo: DesktopRepository, project: Project, measurements: List<Measurement>) {
     // The project flows back from the repository after every persist; keep a local override so a

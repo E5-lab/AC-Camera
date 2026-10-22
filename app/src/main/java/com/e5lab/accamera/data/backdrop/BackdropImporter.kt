@@ -44,7 +44,10 @@ object BackdropImporter {
 
     private const val DIR = "backdrops"
 
-    /** File extensions we can display. `*/*` is offered in the picker, so filtering is our job. */
+    // File extensions we can display. A wildcard MIME is offered in the picker, so filtering is
+    // our job. NOTE: keep this as a line comment. A block comment cannot hold the wildcard MIME
+    // literals below, because the "*" + "/" pair they contain would close the comment early and
+    // the rest of the line would be parsed as Kotlin code ("Expecting member declaration").
     val PICKER_MIME = arrayOf("image/*", "application/pdf", "application/dxf", "*/*")
 
     suspend fun import(context: Context, uri: Uri, projectId: Long): Result<BackdropImport> =
