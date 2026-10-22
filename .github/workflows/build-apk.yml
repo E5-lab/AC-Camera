@@ -158,6 +158,11 @@ jobs:
   build-desktop-windows:
     runs-on: windows-latest
     timeout-minutes: 60
+    # Force en-US for the JVM that drives jpackage. jpackage's MSI/EXE bundler does
+    # WiX localization and is known to throw cryptic "Input length = 1" failures when the
+    # runtime locale is non-en-US (e.g. zh_CN). This rules that class of failure out.
+    env:
+      JAVA_TOOL_OPTIONS: "-Duser.language=en -Duser.country=US"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -274,6 +279,8 @@ jobs:
           files: |
             desktopApp/build/compose/logs/packageMsi/*.txt
             desktopApp/build/compose/logs/packageExe/*.txt
+            desktopApp/build/compose/tmp/packageMsi.args.txt
+            desktopApp/build/compose/tmp/packageExe.args.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
