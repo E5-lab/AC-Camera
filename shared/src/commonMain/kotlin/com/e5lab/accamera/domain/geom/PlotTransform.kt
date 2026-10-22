@@ -81,6 +81,13 @@ data class PlotTransform(
     companion object {
         const val MIN_ZOOM = 1f
         const val MAX_ZOOM = 20f
-        const val DEFAULT = PlotTransform()
+
+        /**
+         * The fitted, un-panned transform.
+         *
+         * NOTE: must be a plain `val` — `const val` only accepts primitives and String, so the
+         * previous `const val DEFAULT = PlotTransform()` did not compile.
+         */
+        val DEFAULT = PlotTransform()
     }
 }

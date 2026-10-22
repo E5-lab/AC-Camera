@@ -203,7 +203,10 @@ object CadReader {
             val c = current[0] ?: return
             current[0] = null
             if (c.type == "VERTEX" || c.type == "BLOCK") return
-            if (blockEntities != null) blockEntities.add(c) else model.add(c)
+            // Local snapshot: smart-casting the captured `var blockEntities` directly is rejected
+            // by the compiler ("captured by a changing closure").
+            val block = blockEntities
+            if (block != null) block.add(c) else model.add(c)
         }
 
         while (i < tags.size) {
