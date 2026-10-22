@@ -71,7 +71,7 @@ fun ProjectListScreen(nav: NavHostController) {
         }
     }
     val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(arrayOf("application/json", "*/*"))
+        ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) scope.launch {
             val n = vm.importJsonUri(uri)
