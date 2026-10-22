@@ -228,9 +228,10 @@ fun DataEntryTab(repo: DesktopRepository, project: Project, measurements: List<M
         Spacer(Modifier.size(8.dp))
         Box(Modifier.fillMaxSize().verticalScroll(vScroll).horizontalScroll(hScroll)) {
             Column {
-                for (r in 0 until project.rows) {
+                // cols/rows are CELL counts -> (cols+1) x (rows+1) corner points.
+                for (r in 0..project.rows) {
                     Row {
-                        for (c in 0 until project.cols) {
+                        for (c in 0..project.cols) {
                             val key = "$c,$r"
                             val m = map[key]
                             CellInput(
@@ -255,10 +256,17 @@ fun DataEntryTab(repo: DesktopRepository, project: Project, measurements: List<M
 
 @Composable
 fun CellInput(initial: String, isSource: Boolean, onCommit: (String) -> Unit) {
-    var text by remember(initial) { mutableStateOf(initial) }
+    // Initialise once; live-commit below keeps the repository in sync so a value is never lost
+    // when the user switches tabs without pressing Enter.
+    var text by remember { mutableStateOf(initial) }
     OutlinedTextField(
         text,
-        onValueChange = { text = it },
+        onValueChange = { txt ->
+            text = txt
+            // Persist on every valid keystroke — this is what fixes the "data cleared after
+            // switching to the contour tab" bug (previously only Enter committed).
+            txt.toDoubleOrNull()?.let { onCommit(txt) }
+        },
         modifier = Modifier.size(76.dp, 56.dp)
             .onKeyEvent { if (it.key == Key.Enter) { onCommit(text); true } else false },
         singleLine = true,

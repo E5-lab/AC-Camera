@@ -89,8 +89,9 @@ class ProjectRepository(
                 w.appendLine("")
                 w.appendLine("col,row,x_m,y_m,spl_db,note,remediation,after_spl_db,reduction_db")
 
-                for (row in 0 until project.rows) {
-                    for (col in 0 until project.cols) {
+                // cols/rows are CELL counts -> corner points 0..cols / 0..rows.
+                for (row in 0..project.rows) {
+                    for (col in 0..project.cols) {
                         val m = measured["$col,$row"]
                         val x = "%.2f".format(project.xAt(col))
                         val y = "%.2f".format(project.yAt(row))

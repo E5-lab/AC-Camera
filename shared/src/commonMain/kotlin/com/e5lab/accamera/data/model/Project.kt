@@ -9,12 +9,15 @@ import kotlinx.serialization.Serializable
  * (lives in the `shared` Kotlin Multiplatform module). Persistence is handled per-platform:
  * the Android client maps this to a Room entity, the Desktop client maps it to JSON.
  *
- * Grid layout:
- *  - [cols] measurement points per row, [rows] rows of points.
+ * Grid layout (CELL-COUNT semantics):
+ *  - [cols] / [rows] are the number of grid *cells* along each axis (the factory is divided into a
+ *    cols × rows lattice of rectangles).
+ *  - Measurement points are located at the cell *corners* (grid-line intersections): there are
+ *    (cols+1) columns and (rows+1) rows of points, i.e. [(cols+1) * (rows+1)] in total.
  *  - Point (col, row) is located at physical coordinates
- *      x = col * spacingX  (meters)
- *      y = row * spacingY  (meters)
- *    so the surveyed area is (cols-1)*spacingX wide and (rows-1)*spacingY tall.
+ *      x = col * spacingX  (meters),  col in 0..cols
+ *      y = row * spacingY  (meters),  row in 0..rows
+ *    so the surveyed area is cols*spacingX wide and rows*spacingY tall.
  *
  * @param backgroundImagePath optional factory floor-plan / site photo used as the base map
  *        for the equal-SPL contour plot and the survey backdrop.
@@ -57,18 +60,18 @@ data class Project(
     // Number of quantized colour bands of the SPL heatmap (8/16/32/64/128/256)
     val contourColorBands: Int = 32,
 ) {
-    /** Physical width of the surveyed area in meters. */
-    val widthMeters: Double get() = (cols - 1).coerceAtLeast(0) * spacingX
+    /** Physical width of the surveyed area in meters (cols cells × spacingX). */
+    val widthMeters: Double get() = (cols).coerceAtLeast(0) * spacingX
 
-    /** Physical height of the surveyed area in meters. */
-    val heightMeters: Double get() = (rows - 1).coerceAtLeast(0) * spacingY
+    /** Physical height of the surveyed area in meters (rows cells × spacingY). */
+    val heightMeters: Double get() = (rows).coerceAtLeast(0) * spacingY
 
-    /** Total number of measurement points in the grid. */
-    val pointCount: Int get() = cols * rows
+    /** Total number of measurement points in the grid ((cols+1) × (rows+1) corners). */
+    val pointCount: Int get() = (cols + 1) * (rows + 1)
 
-    /** Physical X coordinate (meters) of a grid column. */
+    /** Physical X coordinate (meters) of a grid column (corner), col in 0..cols. */
     fun xAt(col: Int): Double = col * spacingX
 
-    /** Physical Y coordinate (meters) of a grid row. */
+    /** Physical Y coordinate (meters) of a grid row (corner), row in 0..rows. */
     fun yAt(row: Int): Double = row * spacingY
 }

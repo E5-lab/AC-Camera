@@ -31,9 +31,10 @@ object NoiseSourceAnalyzer {
     ): List<NoiseSource> {
         if (measurements.isEmpty()) return emptyList()
 
-        val grid = Array(project.rows) { DoubleArray(project.cols) { Double.NaN } }
+        // cols/rows are CELL counts -> (cols+1) x (rows+1) corner points, indices 0..cols / 0..rows.
+        val grid = Array(project.rows + 1) { DoubleArray(project.cols + 1) { Double.NaN } }
         for (m in measurements) {
-            if (m.col in 0 until project.cols && m.row in 0 until project.rows) {
+            if (m.col in 0..project.cols && m.row in 0..project.rows) {
                 grid[m.row][m.col] = m.spl
             }
         }
@@ -50,7 +51,7 @@ object NoiseSourceAnalyzer {
                     if (dr == 0 && dc == 0) continue
                     val r = m.row + dr
                     val c = m.col + dc
-                    if (r in 0 until project.rows && c in 0 until project.cols) {
+                    if (r in 0..project.rows && c in 0..project.cols) {
                         val nv = grid[r][c]
                         if (!nv.isNaN() && nv > v) {
                             isMax = false

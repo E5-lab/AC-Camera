@@ -42,6 +42,9 @@ fun GridPlot(
     var size by remember { mutableStateOf(IntSize.Zero) }
     val pad = 24f
     val range = (maxValue - minValue).let { if (it <= 1e-6) 1.0 else it }
+    // cols/rows are CELL counts -> (cols+1) x (rows+1) corner points, cols x rows cells.
+    val nCols = cols.coerceAtLeast(1)
+    val nRows = rows.coerceAtLeast(1)
 
     Box(modifier.fillMaxSize().onGloballyPositioned { size = it.size }) {
         Canvas(
@@ -51,11 +54,11 @@ fun GridPlot(
                     detectTapGestures { offset ->
                         if (size == IntSize.Zero || cols <= 0 || rows <= 0) return@detectTapGestures
                         val rect = plotRect(size.width.toFloat(), size.height.toFloat(), pad, background)
-                        val cw = if (cols > 1) rect.width / (cols - 1) else rect.width / 2f
-                        val ch = if (rows > 1) rect.height / (rows - 1) else rect.height / 2f
+                        val cw = rect.width / nCols
+                        val ch = rect.height / nRows
                         var best: Pair<Int, Int>? = null
                         var bestDist = Float.MAX_VALUE
-                        for (c in 0 until cols) for (r in 0 until rows) {
+                        for (c in 0..cols) for (r in 0..rows) {
                             val px = rect.left + c * cw
                             val py = rect.top + r * ch
                             val d =
@@ -85,18 +88,18 @@ fun GridPlot(
 
             val lineColor =
                 if (background != null) Color.White.copy(alpha = 0.45f) else Color.LightGray
-            for (c in 0 until cols) {
-                val x = rect.left + if (cols > 1) c * rect.width / (cols - 1) else rect.width / 2f
+            for (c in 0..cols) {
+                val x = rect.left + c * rect.width / nCols
                 drawLine(lineColor, Offset(x, rect.top), Offset(x, rect.bottom), strokeWidth = 1f)
             }
-            for (r in 0 until rows) {
-                val y = rect.top + if (rows > 1) r * rect.height / (rows - 1) else rect.height / 2f
+            for (r in 0..rows) {
+                val y = rect.top + r * rect.height / nRows
                 drawLine(lineColor, Offset(rect.left, y), Offset(rect.right, y), strokeWidth = 1f)
             }
 
-            for (c in 0 until cols) for (r in 0 until rows) {
-                val px = rect.left + if (cols > 1) c * rect.width / (cols - 1) else rect.width / 2f
-                val py = rect.top + if (rows > 1) r * rect.height / (rows - 1) else rect.height / 2f
+            for (c in 0..cols) for (r in 0..rows) {
+                val px = rect.left + c * rect.width / nCols
+                val py = rect.top + r * rect.height / nRows
                 val v = points[c to r]
                 val color = if (v != null) {
                     splColor(((v - minValue) / range).toFloat())
