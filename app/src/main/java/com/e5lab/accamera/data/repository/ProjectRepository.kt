@@ -139,9 +139,9 @@ class ProjectRepository(
             val imported = JsonExchange.import(text)
             db.withTransaction {
                 imported.forEach { (project, measurements) ->
-                    val newId = db.projectDao().insert(project.copy(id = 0))
+                    val newId = db.projectDao().insert(project.copy(id = 0).toEntity())
                     measurements.forEach { m ->
-                        db.measurementDao().upsert(m.copy(projectId = newId))
+                        db.measurementDao().upsert(m.copy(projectId = newId).toEntity())
                     }
                 }
                 importedCount = imported.size

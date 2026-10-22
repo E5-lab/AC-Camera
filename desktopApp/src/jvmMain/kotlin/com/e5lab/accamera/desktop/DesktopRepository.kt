@@ -3,6 +3,7 @@ package com.e5lab.accamera.desktop
 import com.e5lab.accamera.data.exchange.JsonExchange
 import com.e5lab.accamera.data.model.Measurement
 import com.e5lab.accamera.data.model.Project
+import com.e5lab.accamera.data.model.ProjectWithMeasurements
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -106,7 +107,7 @@ class DesktopRepository(private val dataFile: File) {
     private fun load(): MutableMap<Long, ProjectWithMeasurements> {
         return runCatching {
             if (!dataFile.exists()) return mutableMapOf()
-            json.decodeFromString<List<ProjectWithMeasurements>>(dataFile.readText())
+            JsonExchange.json.decodeFromString<List<ProjectWithMeasurements>>(dataFile.readText())
                 .associateBy { it.project.id }.toMutableMap()
         }.getOrDefault(mutableMapOf())
     }
