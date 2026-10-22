@@ -212,8 +212,8 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path "$env:SIGN_PFX") {
-            signtool sign /f "$env:SIGN_PFX" /p "$env:SIGN_PW" /t http://timestamp.digicert.com /fd SHA256 "desktopApp/build/compose/binaries/main/msi/AC-Camera-1.0.0.msi"
-            signtool sign /f "$env:SIGN_PFX" /p "$env:SIGN_PW" /t http://timestamp.digicert.com /fd SHA256 "desktopApp/build/compose/binaries/main/exe/AC-Camera-1.0.0.exe"
+            signtool sign /f "$env:SIGN_PFX" /p "$env:SIGN_PW" /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 "desktopApp/build/compose/binaries/main/msi/AC-Camera-1.0.0.msi"
+            signtool sign /f "$env:SIGN_PFX" /p "$env:SIGN_PW" /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 "desktopApp/build/compose/binaries/main/exe/AC-Camera-1.0.0.exe"
           } else { Write-Host "No signing certificate provided; skipping code signing." }
 
       - name: Zip the portable distributable
