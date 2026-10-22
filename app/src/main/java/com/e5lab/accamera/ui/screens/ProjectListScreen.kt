@@ -1,5 +1,7 @@
 package com.e5lab.accamera.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,8 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,9 +45,11 @@ import androidx.navigation.NavHostController
 import com.e5lab.accamera.data.model.Project
 import com.e5lab.accamera.ui.navigation.Routes
 import com.e5lab.accamera.ui.viewmodel.ProjectListViewModel
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,10 +59,35 @@ fun ProjectListScreen(nav: NavHostController) {
     var showDialog by remember { mutableStateOf(false) }
     var projectToDelete by remember { mutableStateOf<Project?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) scope.launch {
+            val json = vm.exportAllJson()
+            context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+            Toast.makeText(context, "已导出全部项目数据", Toast.LENGTH_SHORT).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(arrayOf("application/json", "*/*"))
+    ) { uri ->
+        if (uri != null) scope.launch {
+            val n = vm.importJsonUri(uri)
+            Toast.makeText(context, "已导入 $n 个项目", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("AC-Camera · 声学网格测量") })
+            TopAppBar(
+                title = { Text("AC-Camera · 声学网格测量") },
+                actions = {
+                    TextButton(onClick = { exportLauncher.launch("ac-camera-data.json") }) { Text("导出") }
+                    TextButton(onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }) { Text("导入") }
+                },
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showDialog = true }) {

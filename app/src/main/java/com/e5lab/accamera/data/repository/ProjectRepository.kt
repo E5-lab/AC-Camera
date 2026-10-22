@@ -1,7 +1,10 @@
 package com.e5lab.accamera.data.repository
 
 import android.content.Context
+import android.net.Uri
 import android.os.Environment
+import androidx.room.withTransaction
+import com.e5lab.accamera.data.exchange.JsonExchange
 import com.e5lab.accamera.data.local.AppDatabase
 import com.e5lab.accamera.data.local.toEntity
 import com.e5lab.accamera.data.local.toMeasurementModels
@@ -10,6 +13,7 @@ import com.e5lab.accamera.data.local.toProjectModel
 import com.e5lab.accamera.data.local.toProjectModels
 import com.e5lab.accamera.data.model.Measurement
 import com.e5lab.accamera.data.model.Project
+import com.e5lab.accamera.data.model.ProjectWithMeasurements
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -108,4 +112,41 @@ class ProjectRepository(
             }
             file
         }
+    }
+
+    // ---- JSON export / import (cross-platform with the Desktop client) ----
+    /**
+     * Serializes every project and its measurements to the shared JSON interchange format
+     * ([JsonExchange]), which is byte-compatible with the Desktop client's export.
+     */
+    suspend fun exportAllJson(): String = withContext(Dispatchers.IO) {
+        val projects = db.projectDao().getAll().map { it.toModel() }
+        val list = projects.map { p ->
+            ProjectWithMeasurements(p, db.measurementDao().getByProject(p.id).map { it.toModel() })
+        }
+        JsonExchange.export(list)
+    }
+
+    /**
+     * Reads a JSON file (from a content [uri], e.g. chosen through ACTION_OPEN_DOCUMENT) produced by
+     * either client and merges it into Room. Imported projects get fresh auto-generated IDs so a
+     * re-import never clobbers existing data. Returns the number of projects imported.
+     */
+    suspend fun importJsonUri(uri: Uri): Int = withContext(Dispatchers.IO) {
+        var importedCount = 0
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            val text = stream.bufferedReader().readText()
+            val imported = JsonExchange.import(text)
+            db.withTransaction {
+                imported.forEach { (project, measurements) ->
+                    val newId = db.projectDao().insert(project.copy(id = 0))
+                    measurements.forEach { m ->
+                        db.measurementDao().upsert(m.copy(projectId = newId))
+                    }
+                }
+                importedCount = imported.size
+            }
+        }
+        importedCount
+    }
 }

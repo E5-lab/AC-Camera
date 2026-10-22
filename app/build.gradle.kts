@@ -1,8 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
 }
+
+// Release signing is configured from local.properties (local builds) or CI environment variables
+// (signed-release workflow). When neither is set, the "release" build type simply stays unsigned.
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val keystorePath: String? =
+    (localProperties["AC_CAMERA_KEYSTORE_PATH"] as? String ?: System.getenv("AC_CAMERA_KEYSTORE_PATH"))
+        ?.takeIf { it.isNotBlank() }
 
 android {
     namespace = "com.e5lab.accamera"
@@ -16,6 +27,21 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        create("release") {
+            // Populated only when a keystore is configured (local.properties for local builds,
+            // CI environment variables for the signed-release workflow). The store file is left
+            // null when absent so an unsigned build still works for debug/dev.
+            storeFile = keystorePath?.let { file(it) }
+            storePassword =
+                (localProperties["AC_CAMERA_KEYSTORE_PASSWORD"] as? String) ?: System.getenv("AC_CAMERA_KEYSTORE_PASSWORD")
+            keyAlias =
+                (localProperties["AC_CAMERA_KEY_ALIAS"] as? String) ?: System.getenv("AC_CAMERA_KEY_ALIAS")
+            keyPassword =
+                (localProperties["AC_CAMERA_KEY_PASSWORD"] as? String) ?: System.getenv("AC_CAMERA_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -23,6 +49,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Sign only when a keystore is actually available.
+            signingConfig = if (keystorePath != null) signingConfigs.getByName("release") else null
         }
     }
 

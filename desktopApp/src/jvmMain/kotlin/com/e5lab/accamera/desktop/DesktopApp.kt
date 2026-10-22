@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -68,6 +69,8 @@ import javax.swing.JFileChooser
 import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 enum class Screen { List }
 
@@ -92,12 +95,29 @@ fun App(repo: DesktopRepository) {
 fun ProjectListScreen(repo: DesktopRepository, onOpen: (Long) -> Unit) {
     val projects by repo.projects.collectAsState()
     var showCreate by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("AC-Camera · 项目列表") }) }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            Button(onClick = { showCreate = !showCreate }) { Text(if (showCreate) "收起" else "新建项目") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { showCreate = !showCreate }) { Text(if (showCreate) "收起" else "新建项目") }
+                Button(onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        pickFileToSave("ac-camera-data.json")?.let { file ->
+                            runCatching { file.writeText(repo.exportJson()) }
+                        }
+                    }
+                }) { Text("导出 JSON") }
+                Button(onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        pickFileToOpen()?.let { file ->
+                            runCatching { repo.importJson(file.readText()) }
+                        }
+                    }
+                }) { Text("导入 JSON") }
+            }
             if (showCreate) {
                 CreateProjectForm(repo) { showCreate = false; onOpen(it) }
             }
@@ -384,6 +404,33 @@ fun pickImageFile(): String? {
         val fc = JFileChooser()
         if (fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
             result = fc.selectedFile.absolutePath
+        }
+    }
+    return result
+}
+
+/** Open a save dialog and return the chosen destination file (null if cancelled). */
+fun pickFileToSave(defaultName: String): File? {
+    var result: File? = null
+    EventQueue.invokeAndWait {
+        val fc = JFileChooser().apply {
+            dialogTitle = "导出 AC-Camera 数据 (JSON)"
+            selectedFile = File(defaultName)
+        }
+        if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+            result = fc.selectedFile
+        }
+    }
+    return result
+}
+
+/** Open an open dialog and return the chosen source file (null if cancelled). */
+fun pickFileToOpen(): File? {
+    var result: File? = null
+    EventQueue.invokeAndWait {
+        val fc = JFileChooser().apply { dialogTitle = "导入 AC-Camera 数据 (JSON)" }
+        if (fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+            result = fc.selectedFile
         }
     }
     return result

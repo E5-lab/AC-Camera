@@ -1,13 +1,11 @@
 package com.e5lab.accamera.desktop
 
+import com.e5lab.accamera.data.exchange.JsonExchange
 import com.e5lab.accamera.data.model.Measurement
 import com.e5lab.accamera.data.model.Project
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
@@ -15,18 +13,12 @@ import java.util.concurrent.atomic.AtomicLong
  * Desktop (JVM) persistence: a single JSON file holding every project + its measurements.
  *
  * This is the desktop counterpart of the Android client's Room database — both operate on the
- * SAME shared [Project] / [Measurement] models, so a project authored on the phone and one authored
- * on the PC are byte-for-byte compatible and can be handed over via the JSON export/import.
+ * SAME shared [Project] / [Measurement] models, and both serialize the exchange via [JsonExchange],
+ * so a project authored on the phone and one authored on the PC are byte-for-byte compatible and can
+ * be handed over via the JSON export/import buttons.
  */
-@Serializable
-private data class ProjectWithMeasurements(
-    val project: Project,
-    val measurements: List<Measurement>,
-)
-
 class DesktopRepository(private val dataFile: File) {
 
-    private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
     private val idGen = AtomicLong(System.currentTimeMillis() % 1_000_000)
 
     private var store: MutableMap<Long, ProjectWithMeasurements> = load()
@@ -95,15 +87,12 @@ class DesktopRepository(private val dataFile: File) {
 
     /** Replace the whole store from an imported JSON string (export/import hand-over). */
     fun importJson(text: String) {
-        val list = json.decodeFromString<List<ProjectWithMeasurements>>(text)
+        val list = JsonExchange.import(text)
         store = list.associateBy { it.project.id }.toMutableMap()
         persist()
     }
 
-    fun exportJson(): String = json.encodeToString(
-        ListSerializer(ProjectWithMeasurements.serializer()),
-        store.values.toList(),
-    )
+    fun exportJson(): String = JsonExchange.export(store.values.toList())
 
     private fun persist() {
         runCatching {

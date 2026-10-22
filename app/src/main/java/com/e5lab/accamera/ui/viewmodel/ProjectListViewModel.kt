@@ -1,6 +1,7 @@
 package com.e5lab.accamera.ui.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.e5lab.accamera.ACameraApplication
@@ -36,4 +37,10 @@ class ProjectListViewModel(application: Application) : AndroidViewModel(applicat
     fun delete(project: Project) = viewModelScope.launch {
         repo.delete(project)
     }
+
+    /** Serialize the whole database to the shared JSON interchange format. */
+    suspend fun exportAllJson(): String = repo.exportAllJson()
+
+    /** Import a JSON file (chosen by the user) and merge it into Room. Returns #projects imported. */
+    suspend fun importJsonUri(uri: Uri): Int = repo.importJsonUri(uri)
 }

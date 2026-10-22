@@ -15,6 +15,10 @@ interface ProjectDao {
     @Insert
     suspend fun insert(project: ProjectEntity): Long
 
+    /** All projects (no flow) — used by the JSON export of the whole database. */
+    @Query("SELECT * FROM projects")
+    suspend fun getAll(): List<ProjectEntity>
+
     /**
      * Plain UPDATE — must NOT be INSERT OR REPLACE. SQLite's REPLACE deletes the conflicting
      * row before inserting, which fires the measurements ON DELETE CASCADE and silently wipes

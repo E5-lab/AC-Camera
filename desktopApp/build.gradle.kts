@@ -27,8 +27,27 @@ compose.desktop {
         nativeDistributions {
             packageName = "AC-Camera"
             packageVersion = "1.0.0"
-            // No installer target formats -> CI uses createDistributable (portable, bundled JRE).
-            // Producing an .msi/.exe installer would require the WiX toolset on the runner.
+            // Installer outputs (built by CI on windows-latest):
+            //   build/compose/binaries/main/msi/AC-Camera-1.0.0.msi   (needs WiX, preinstalled on the runner)
+            //   build/compose/binaries/main/exe/AC-Camera-1.0.0.exe   (needs NSIS, installed via choco in CI)
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe,
+            )
+            description = "AC-Camera 等声压级现场声学测量（Windows 桌面端）"
+            copyright = "© E5-lab"
+            vendor = "E5-lab"
+            // MSI/EXE also bundle the JRE, so the installer is fully self-contained.
+            windows {
+                // Per-user install avoids UAC prompts and writes under %LOCALAPPDATA%.
+                perUserInstall = true
+                // Let the user pick the install directory from the installer wizard.
+                dirChooser = true
+                // Add a Start Menu shortcut group.
+                menu = true
+                // Create a desktop shortcut.
+                shortcut = true
+            }
         }
     }
 }

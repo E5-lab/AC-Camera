@@ -105,6 +105,43 @@ app/src/main/java/com/e5lab/accamera/
 
 ---
 
+## Windows 桌面端 · 安装包与数据互导
+
+项目已扩展为 **Compose 多平台（KMP）**：安卓 APK + Windows 桌面端（`desktopApp/`，Compose for Desktop）共用 `shared/` 的声学算法与数据模型。
+
+### 1. 安装包（msi / exe）
+CI 在 `windows-latest` 上用 jpackage 产出三种产物，发布到 `latest-windows` Release：
+- `AC-Camera-Windows.zip` — 便携版（内置 JRE，解压即跑 `AC-Camera.exe`）；
+- `AC-Camera-1.0.0.msi` — MSI 安装包（WiX，runner 自带，缺失时插件自动下载）；
+- `AC-Camera-1.0.0.exe` — EXE 安装包（NSIS，CI 通过 `choco install nsis` 安装）。
+
+本机手动打包：
+```bash
+./gradlew :desktopApp:packageMsi     # 需要 WiX 3.14
+./gradlew :desktopApp:packageExe     # 需要 NSIS
+```
+
+### 2. 安卓 ↔ Windows 数据 JSON 互导
+两端共用 `shared` 中的 `ProjectWithMeasurements` + `JsonExchange`，导出的 JSON **字节级兼容**。
+- **安卓**：项目列表右上角「导出 / 导入」按钮（系统文件选择器；导出整个数据库，导入时自动分配新 ID 避免冲突）。
+- **Windows**：项目列表上方「导出 JSON / 导入 JSON」按钮（Swing 文件对话框）。
+- 文件格式：`List<ProjectWithMeasurements>`，即"每个项目 + 其全部测点"。
+
+### 3. 发布签名
+- **安卓签名版 APK**：在 `local.properties` 或 CI 环境变量配置 keystore 后，`assembleRelease` 自动签名并发布到 `latest-release`。
+  - `local.properties` 写法：
+    ```properties
+    AC_CAMERA_KEYSTORE_PATH=/绝对路径/release.jks
+    AC_CAMERA_KEYSTORE_PASSWORD=***
+    AC_CAMERA_KEY_ALIAS=ac_camera
+    AC_CAMERA_KEY_PASSWORD=***
+    ```
+  - CI 密钥：把 `.jks` 做 `base64` 后存入 Secret `AC_CAMERA_KEYSTORE_BASE64`，再设 `AC_CAMERA_KEYSTORE_PASSWORD` / `AC_CAMERA_KEY_ALIAS` / `AC_CAMERA_KEY_PASSWORD`。
+  - 本地生成 keystore：`keytool -genkeypair -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias ac_camera`
+- **Windows 安装包签名（可选）**：配置 Secret `WINDOWS_SIGN_PFX`（base64 的 `.pfx`）+ `WINDOWS_SIGN_PASSWORD`，CI 用 `signtool` 做 Authenticode 签名（需受信任的代码签名证书）。
+
+---
+
 ## License
 
 本项目用于声学环保现场测量，按仓库默认协议开源。
