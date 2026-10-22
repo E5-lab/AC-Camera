@@ -28,17 +28,20 @@ compose.desktop {
             packageName = "AC-Camera"
             packageVersion = "1.0.0"
             // Installer outputs (built by CI on windows-latest):
-            //   build/compose/binaries/main/msi/AC-Camera-1.0.0.msi   (needs WiX, preinstalled on the runner)
-            //   build/compose/binaries/main/exe/AC-Camera-1.0.0.exe   (needs NSIS, installed via choco in CI)
+            //   build/compose/binaries/main/msi/AC-Camera-1.0.0.msi   (needs WiX Toolset, installed via choco in CI)
+            //   build/compose/binaries/main/exe/AC-Camera-1.0.0.exe   (needs Inno Setup, installed via choco in CI)
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe,
             )
-            description = "AC-Camera 等声压级现场声学测量（Windows 桌面端）"
-            copyright = "© E5-lab"
+            description = "AC-Camera equal-SPL field measurement (Windows desktop)"
+            copyright = "E5-lab"
             vendor = "E5-lab"
             // MSI/EXE also bundle the JRE, so the installer is fully self-contained.
             windows {
+                // Explicit icon (classic BMP .ico): jpackage's MSI/EXE bundler is picky
+                // about icon format and choked on the default icon with "Input length = 1".
+                iconFile.set(project.file("icon.ico"))
                 // Per-user install avoids UAC prompts and writes under %LOCALAPPDATA%.
                 perUserInstall = true
                 // Let the user pick the install directory from the installer wizard.
