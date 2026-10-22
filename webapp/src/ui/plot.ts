@@ -1,0 +1,187 @@
+/**
+ * 通用网格画布：世界坐标 = 测量区域，x∈0..cols，y∈0..rows（cell 语义）。
+ * 一个视图变换（缩放+平移）作用于网格与所有图层；手势处理器直接读当前变换对象
+ * （可变状态 + 按需重绘），从根上避免 Compose 版遇到的「陈旧闭包拖动回弹」问题。
+ */
+
+export interface Transform {
+  zoom: number;
+  panX: number; // 画布像素
+  panY: number;
+}
+
+export const MIN_ZOOM = 1;
+export const MAX_ZOOM = 20;
+
+export class PlotCanvas {
+  readonly canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  readonly transform: Transform = { zoom: 1, panX: 0, panY: 0 };
+  pad = 24;
+
+  private dragStart: { x: number; y: number; moved: boolean } | null = null;
+  private onPaint: (world: Rect, t: Transform) => void = () => {};
+  onTap: ((col: number, row: number) => void) | null = null;
+  cols = 10;
+  rows = 10;
+  onZoomChange: ((z: number) => void) | null = null;
+
+  constructor(wrap: HTMLElement) {
+    this.canvas = document.createElement('canvas');
+    this.canvas.className = 'plot-canvas';
+    wrap.appendChild(this.canvas);
+    this.ctx = this.canvas.getContext('2d')!;
+
+    const ro = new ResizeObserver(() => this.resize());
+    ro.observe(wrap);
+    this.resize();
+
+    this.canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      this.zoomAt(e.offsetX, e.offsetY, factor);
+    }, { passive: false });
+
+    this.canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      this.canvas.setPointerCapture(e.pointerId);
+      this.dragStart = { x: e.offsetX, y: e.offsetY, moved: false };
+    });
+
+    this.canvas.addEventListener('pointermove', (e) => {
+      if (!this.dragStart) return;
+      const dx = e.offsetX - this.dragStart.x;
+      const dy = e.offsetY - this.dragStart.y;
+      if (!this.dragStart.moved && Math.hypot(dx, dy) < 4) return; // 抑制抖动误判为拖动
+      this.dragStart.moved = true;
+      this.transform.panX += dx;
+      this.transform.panY += dy;
+      this.dragStart.x = e.offsetX;
+      this.dragStart.y = e.offsetY;
+      this.clampPan();
+      this.paint();
+    });
+
+    this.canvas.addEventListener('pointerup', (e) => {
+      const start = this.dragStart;
+      this.dragStart = null;
+      if (!start || start.moved) return; // 拖动结束不触发点击
+      if (!this.onTap) return;
+      const hit = this.nearestIntersection(e.offsetX, e.offsetY);
+      if (hit) this.onTap(hit.col, hit.row);
+    });
+  }
+
+  setPainter(fn: (world: Rect, t: Transform) => void): void {
+    this.onPaint = fn;
+  }
+
+  fit(): void {
+    this.transform.zoom = 1;
+    this.transform.panX = 0;
+    this.transform.panY = 0;
+    this.paint();
+    this.onZoomChange?.(1);
+  }
+
+  zoomStep(factor: number): void {
+    const { width, height } = this.canvasRect();
+    this.zoomAt(width / 2, height / 2, factor);
+  }
+
+  private zoomAt(px: number, py: number, factor: number): void {
+    const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.transform.zoom * factor));
+    if (nz === this.transform.zoom) return;
+    const rect = this.viewport();
+    // 以光标为锚：光标下的世界点保持不动
+    const wx = (px - rect.left - this.transform.panX) / (rect.width * this.transform.zoom);
+    const wy = (py - rect.top - this.transform.panY) / (rect.height * this.transform.zoom);
+    this.transform.zoom = nz;
+    this.transform.panX = px - rect.left - wx * rect.width * nz;
+    this.transform.panY = py - rect.top - wy * rect.height * nz;
+    this.clampPan();
+    this.paint();
+    this.onZoomChange?.(nz);
+  }
+
+  private clampPan(): void {
+    const rect = this.viewport();
+    const w = rect.width * this.transform.zoom;
+    const h = rect.height * this.transform.zoom;
+    // 保证测量区域始终盖住视口（zoom≥1）
+    this.transform.panX = Math.min(0, Math.max(rect.width - w, this.transform.panX));
+    this.transform.panY = Math.min(0, Math.max(rect.height - h, this.transform.panY));
+  }
+
+  /** 当前视口内测量区域的基准矩形（未含缩放平移）。 */
+  viewport(): Rect {
+    const { width, height } = this.canvasRect();
+    const pad = this.pad;
+    const availW = Math.max(1, width - 2 * pad);
+    const availH = Math.max(1, height - 2 * pad);
+    const cell = Math.min(availW / this.cols, availH / this.rows);
+    const w = cell * this.cols;
+    const h = cell * this.rows;
+    const left = pad + (availW - w) / 2;
+    const top = pad + (availH - h) / 2;
+    return { left, top, width: w, height: h };
+  }
+
+  /** 缩放平移后的世界矩形（画布像素坐标）。 */
+  worldRect(): Rect {
+    const r = this.viewport();
+    const z = this.transform.zoom;
+    const w = r.width * z;
+    const h = r.height * z;
+    return { left: r.left + this.transform.panX, top: r.top + this.transform.panY, width: w, height: h };
+  }
+
+  /** 画布像素 → 交汇点（col,row），无有效点返回 null。 */
+  pointAt(px: number, py: number): { col: number; row: number } | null {
+    const w = this.worldRect();
+    const cw = w.width / this.cols;
+    const ch = w.height / this.rows;
+    const col = Math.round((px - w.left) / cw);
+    const row = Math.round((py - w.top) / ch);
+    if (col < 0 || col > this.cols || row < 0 || row > this.rows) return null;
+    const dist = Math.hypot(px - (w.left + col * cw), py - (w.top + row * ch));
+    return dist < Math.min(cw, ch) * 0.55 ? { col, row } : null;
+  }
+
+  private nearestIntersection(px: number, py: number): { col: number; row: number } | null {
+    return this.pointAt(px, py);
+  }
+
+  private canvasRect(): { width: number; height: number } {
+    return { width: this.canvas.width / devicePixelRatio, height: this.canvas.height / devicePixelRatio };
+  }
+
+  resize(): void {
+    const wrap = this.canvas.parentElement;
+    if (!wrap) return;
+    const dpr = devicePixelRatio;
+    this.canvas.width = Math.max(1, Math.floor(wrap.clientWidth * dpr));
+    this.canvas.height = Math.max(1, Math.floor(wrap.clientHeight * dpr));
+    this.canvas.style.width = `${wrap.clientWidth}px`;
+    this.canvas.style.height = `${wrap.clientHeight}px`;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.paint();
+  }
+
+  paint(): void {
+    const { width, height } = this.canvasRect();
+    this.ctx.clearRect(0, 0, width, height);
+    this.onPaint(this.worldRect(), this.transform);
+  }
+
+  get ctx2d(): CanvasRenderingContext2D {
+    return this.ctx;
+  }
+}
+
+export interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
