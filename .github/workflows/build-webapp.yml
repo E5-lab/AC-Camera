@@ -1,0 +1,79 @@
+name: Build Web App (Windows exe)
+
+on:
+  push:
+    branches: [webapp-rewrite]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build frontend
+        working-directory: webapp
+        shell: bash
+        run: |
+          set -o pipefail
+          npm install --no-fund --no-audit 2>&1 | tee web-build.log
+          npm run build
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: webapp/src-tauri
+
+      - name: Build Tauri (exe + NSIS installer)
+        working-directory: webapp
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tauri build 2>&1 | tee tauri-build.log
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Copy-Item webapp/src-tauri/target/release/accamera.exe artifacts/AC-Camera-Web.exe
+          Copy-Item webapp/src-tauri/target/release/bundle/nsis/*.exe artifacts/ -ErrorAction SilentlyContinue
+          Get-ChildItem artifacts
+
+      - name: Publish build log (always)
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-logs
+          name: CI Build Logs
+          prerelease: true
+          force: true
+          files: |
+            webapp/web-build.log
+            webapp/tauri-build.log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish exe to release (on success)
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-webapp
+          name: AC-Camera Web (latest build)
+          prerelease: true
+          force: true
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
