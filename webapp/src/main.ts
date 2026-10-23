@@ -54,6 +54,23 @@ function savePrefs(): void {
 
 let store: ProjectWithMeasurements[] = load();
 let currentId: number | null = null;
+
+// 记住上次打开的项目：重开应用直接进入上次的现场，不用再点一次
+const LAST_PROJECT_KEY = 'noiseatlas-last-project';
+try {
+  const last = localStorage.getItem(LAST_PROJECT_KEY);
+  if (last) {
+    const id = Number(last);
+    if (store.some((p) => p.project.id === id)) currentId = id;
+  }
+} catch { /* ignore */ }
+
+function rememberCurrent(): void {
+  try {
+    if (currentId == null) localStorage.removeItem(LAST_PROJECT_KEY);
+    else localStorage.setItem(LAST_PROJECT_KEY, String(currentId));
+  } catch { /* ignore */ }
+}
 let activeTab: 'entry' | 'contour' | 'settings' = 'entry';
 
 function current(): ProjectWithMeasurements | null {
@@ -1432,6 +1449,26 @@ document.querySelectorAll('.menu-panel button[data-cmd]').forEach((b) => {
 });
 
 
+// ───────────────────────── 面板位置自适应 ─────────────────────────
+// 桌面：面板是「等声压级图」页签内的右栏（布局的一部分）。
+// 移动：面板改为全屏上滑抽屉，必须挂到 body 顶层，否则切到「录入/设置」页签时
+// 它随页签一起被 hidden 掉，只剩遮罩可见（用户报的"只有遮罩看不到界面"）。
+
+const dockEl = document.getElementById('right-dock')!;
+const dockHome = dockEl.parentElement!;
+const mqMobile = window.matchMedia('(max-width: 980px)');
+
+function syncDockPlacement(): void {
+  if (mqMobile.matches) {
+    if (dockEl.parentElement !== document.body) document.body.appendChild(dockEl);
+  } else if (dockEl.parentElement !== dockHome) {
+    dockHome.appendChild(dockEl);
+    dockEl.classList.remove('open');
+  }
+}
+syncDockPlacement();
+mqMobile.addEventListener('change', syncDockPlacement);
+
 // ───────────────────────── 移动端交互 ─────────────────────────
 
 const mSidebar = document.getElementById('sidebar')!;
@@ -1466,7 +1503,11 @@ function openSheet(el: HTMLElement): void {
 }
 
 document.getElementById('m-btn-projects')?.addEventListener('click', () => openSheet(mSidebar));
-document.getElementById('m-btn-layers')?.addEventListener('click', () => openSheet(mDock));
+document.getElementById('m-btn-layers')?.addEventListener('click', () => {
+  document.querySelectorAll('#right-dock .dock-sec').forEach((sec) => sec.classList.remove('collapsed'));
+  openSheet(mDock);
+});
+document.getElementById('dock-close')?.addEventListener('click', () => closeAllSheets());
 document.getElementById('m-btn-actions')?.addEventListener('click', () => openSheet(mTools));
 document.getElementById('m-btn-tools')?.addEventListener('click', () => openSheet(mTools));
 mMask.addEventListener('click', closeAllSheets);
@@ -1718,6 +1759,7 @@ function renderWorkspace(): void {
 }
 
 function renderAll(): void {
+  rememberCurrent();
   renderSidebar();
   renderWorkspace();
   document.querySelectorAll('.viewtab').forEach((b) => {
