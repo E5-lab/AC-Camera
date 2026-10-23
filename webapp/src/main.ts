@@ -644,6 +644,67 @@ function splMap(item: ProjectWithMeasurements): Map<string, number> {
   return m;
 }
 
+// ───────────────────────── 通用表单弹窗 ─────────────────────────
+// 安卓 WebView 不支持 window.prompt()（调用直接返回 null，界面毫无反应），
+// 所有需要输入的地方统一走这个应用内弹窗。
+
+interface FieldSpec {
+  key: string;
+  label: string;
+  value?: string | number;
+  type?: 'text' | 'number';
+  min?: number;
+  max?: number;
+  step?: number;
+  placeholder?: string;
+}
+
+function showForm(title: string, fields: FieldSpec[], submitText = '确定'): Promise<Record<string, string> | null> {
+  const fd = document.getElementById('form-dialog') as HTMLDialogElement;
+  const body = document.getElementById('fd-body')!;
+  const titleEl = document.getElementById('fd-title')!;
+  const submit = document.getElementById('fd-submit') as HTMLButtonElement;
+
+  const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+  titleEl.textContent = title;
+  submit.textContent = submitText;
+  body.innerHTML = fields.map((f) => {
+    const type = f.type ?? 'text';
+    const attrs = [
+      'data-key="' + esc(f.key) + '"',
+      'type="' + type + '"',
+      'value="' + esc(f.value ?? '') + '"',
+      f.min !== undefined ? 'min="' + f.min + '"' : '',
+      f.max !== undefined ? 'max="' + f.max + '"' : '',
+      f.step !== undefined ? 'step="' + f.step + '"' : '',
+      f.placeholder ? 'placeholder="' + esc(f.placeholder) + '"' : '',
+      'inputmode="' + (type === 'number' ? 'decimal' : 'text') + '"',
+    ].filter(Boolean).join(' ');
+    return '<label>' + esc(f.label) + '<input ' + attrs + ' /></label>';
+  }).join('');
+
+  return new Promise((resolve) => {
+    const onClose = () => {
+      fd.removeEventListener('close', onClose);
+      if (fd.returnValue !== 'ok') {
+        resolve(null);
+        return;
+      }
+      const out: Record<string, string> = {};
+      body.querySelectorAll<HTMLInputElement>('input[data-key]').forEach((el) => {
+        out[el.dataset.key!] = el.value;
+      });
+      resolve(out);
+    };
+    fd.addEventListener('close', onClose);
+    fd.returnValue = '';
+    fd.showModal();
+    body.querySelector<HTMLInputElement>('input')?.focus();
+  });
+}
+
 // 录入弹窗
 const dlg = document.getElementById('point-dialog') as HTMLDialogElement;
 let dialogTarget: { col: number; row: number } | null = null;
@@ -1100,7 +1161,7 @@ function drawCalibration(ctx: CanvasRenderingContext2D, world: Rect, p: Project)
   ctx.restore();
 }
 
-contourPlot.onRawTap = (u, v) => {
+contourPlot.onRawTap = async (u, v) => {
   if (!calibMode) return;
   const item = current();
   if (!item) return;
@@ -1125,11 +1186,15 @@ contourPlot.onRawTap = (u, v) => {
     contourPlot.paint();
     return;
   }
-  const input = prompt(
-    `这两点在底图上代表多少米？（例如厂房两轴线的实际间距）\n按当前网格比例量得 ${gridMeters.toFixed(2)} m`,
-    gridMeters.toFixed(1),
-  );
-  const realM = parseFloat(input ?? '');
+  const values = await showForm('两点定标', [
+    {
+      key: 'meters',
+      label: `这两点实际多少米？（按当前网格比例量得 ${gridMeters.toFixed(2)} m）`,
+      value: gridMeters.toFixed(1), type: 'number', min: 0.1, step: 0.1,
+    },
+  ], '应用校准');
+  if (!values) { calibPts = []; contourPlot.paint(); return; }
+  const realM = parseFloat(values.meters);
   if (!Number.isFinite(realM) || realM <= 0) {
     calibPts = [];
     contourPlot.paint();
@@ -1149,11 +1214,19 @@ contourPlot.onRawTap = (u, v) => {
 
 // ── 噪声源识别 ──
 
-function runNoiseDetect(): void {
+async function runNoiseDetect(): Promise<void> {
   const item = current();
   if (!item) { alert('请先打开项目'); return; }
   if (item.measurements.length === 0) { alert('请先录入测点数据'); return; }
-  const thr = parseFloat(prompt('噪声源判定阈值 (dB)：', '70') ?? '70');
+  const values = await showForm('识别噪声源', [
+    {
+      key: 'thr',
+      label: '判定阈值 (dB)：低于该值的测点不参与',
+      value: 70, type: 'number', min: 0, max: 200, step: 0.1,
+    },
+  ], '开始识别');
+  if (!values) return;
+  const thr = parseFloat(values.thr);
   if (Number.isNaN(thr)) return;
   const sources = detectNoiseSources(item.project, item.measurements, thr, item.project.backgroundNoiseDb);
   const keys = new Set(sources.map((s) => `${s.col},${s.row}`));
@@ -1444,7 +1517,7 @@ function applyToolbarMode(mode: ToolbarMode): void {
 function runCmd(cmd: string): void {
   const item = current();
   switch (cmd) {
-    case 'new-project': createProject(); break;
+    case 'new-project': void createProject(); break;
     case 'demo': createDemo(); break;
     case 'import': (document.getElementById('import-file') as HTMLInputElement).click(); break;
     case 'export': exportJsonText(JSON.stringify(sortStore(), null, 2)); break;
@@ -1508,7 +1581,7 @@ function runCmd(cmd: string): void {
       contourPlot.paint();
       entryPlot.paint();
       break;
-    case 'noise': runNoiseDetect(); break;
+    case 'noise': void runNoiseDetect(); break;
     case 'recompute':
       splFieldCache = null;
       renderAll();
@@ -1541,18 +1614,27 @@ document.getElementById('btn-copy-img')!.addEventListener('click', () => runCmd(
 
 // ───────────────────────── 项目创建 ─────────────────────────
 
-function createProject(): void {
-  const name = prompt('项目名称：', '新项目');
+async function createProject(): Promise<void> {
+  const values = await showForm('新建项目', [
+    { key: 'name', label: '项目名称', value: '新项目' },
+    { key: 'cols', label: '列数（网格单元）', value: 10, type: 'number', min: 2, max: 80, step: 1 },
+    { key: 'rows', label: '行数（网格单元）', value: 10, type: 'number', min: 2, max: 80, step: 1 },
+    { key: 'sx', label: '列间距 (m)', value: 5, type: 'number', min: 0.1, step: 0.1 },
+    { key: 'sy', label: '行间距 (m)', value: 5, type: 'number', min: 0.1, step: 0.1 },
+  ], '创建');
+  if (!values) return;
+  const name = (values.name ?? '').trim();
   if (!name) return;
-  const cols = parseInt(prompt('列数（网格单元）：', '10') ?? '10', 10) || 10;
-  const rows = parseInt(prompt('行数（网格单元）：', '10') || '10', 10) || 10;
-  const sx = parseFloat(prompt('列间距 (m)：', '5') ?? '5') || 5;
-  const sy = parseFloat(prompt('行间距 (m)：', '5') ?? '5') || 5;
+  const cols = parseInt(values.cols, 10) || 10;
+  const rows = parseInt(values.rows, 10) || 10;
+  const sx = parseFloat(values.sx) || 5;
+  const sy = parseFloat(values.sy) || 5;
   const p = newProject(name, '', Math.max(2, cols), Math.max(2, rows), Math.max(0.1, sx), Math.max(0.1, sy));
   store.push({ project: p, measurements: [] });
   currentId = p.id;
   persist();
   renderAll();
+  closeAllSheets();
 }
 
 function createDemo(): void {
