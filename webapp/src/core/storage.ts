@@ -1,3 +1,5 @@
+import type { ProjectWithMeasurements } from './types';
+
 /**
  * 持久化策略：
  *  1. 优先 File System Access API：用户选一个数据文件夹，自动读写 ac-camera-data.json

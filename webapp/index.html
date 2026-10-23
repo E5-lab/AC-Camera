@@ -5,9 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NoiseAtlas 噪声图谱 · 厂区噪声普查与预测</title>
   <link rel="stylesheet" href="/src/styles.css" />
+  <link rel="stylesheet" href="/src/mobile.css" />
 </head>
 <body>
 <div id="app">
+  <!-- ── 移动端顶部栏（仅窄屏显示）── -->
+  <header id="m-header">
+    <button id="m-btn-projects" class="m-icon" title="项目列表">☰</button>
+    <div class="m-title">
+      <b id="m-project-name">NoiseAtlas</b>
+      <small id="m-subtitle">未打开项目</small>
+    </div>
+    <button id="m-btn-actions" class="m-icon" title="工具">⋯</button>
+  </header>
+
   <!-- ── 菜单栏 ── -->
   <nav id="menubar">
     <div class="brand" title="NoiseAtlas 噪声图谱 · 厂区噪声普查与预测">
@@ -22,8 +33,6 @@
     <button class="menu" data-menu="view" title="视图切换 / 缩放 / 工具栏显示 / 图层显示">视图</button>
     <button class="menu" data-menu="calc" title="噪声源识别 / 声场重算 / 底图与定标">计算</button>
     <button class="menu" data-menu="help" title="关于本软件">帮助</button>
-    <button class="mobile-only" id="btn-toggle-tree" title="显示 / 隐藏左侧对象树">对象树</button>
-    <button class="mobile-only" id="btn-toggle-dock" title="显示 / 隐藏右侧属性面板">属性</button>
     <span class="spacer"></span>
     <span id="menubar-hint" class="hint-inline">厂区噪声网格普查 · 等声压级成图 · 噪声源定位</span>
   </nav>
@@ -153,6 +162,13 @@
       <div class="panel-title">对象树</div>
       <div id="obj-tree" class="tree"></div>
 
+      <div class="m-side-actions">
+        <button id="m-new-project" class="primary">新建项目</button>
+        <button id="m-demo">示例</button>
+        <button id="m-import">导入</button>
+        <button id="m-export">导出</button>
+      </div>
+
       <div class="panel-title">项目 <span id="project-count" class="badge">0</span></div>
       <div id="project-list" class="scroll short"></div>
 
@@ -272,6 +288,31 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- ── 移动端底部导航（仅窄屏显示）── -->
+  <nav id="m-nav">
+    <button data-tab="entry" class="m-tab active"><span class="m-ico">▦</span><span>录入</span></button>
+    <button data-tab="contour" class="m-tab"><span class="m-ico">▩</span><span>等压级图</span></button>
+    <button data-tab="settings" class="m-tab"><span class="m-ico">⚙</span><span>设置</span></button>
+    <button id="m-btn-layers" class="m-tab"><span class="m-ico">◧</span><span>图层</span></button>
+    <button id="m-btn-tools" class="m-tab"><span class="m-ico">✦</span><span>工具</span></button>
+  </nav>
+
+  <div class="m-sheet-mask" id="m-mask" hidden></div>
+
+  <!-- 移动端工具抽屉 -->
+  <div id="m-sheet-tools" class="m-sheet" hidden>
+    <div class="m-sheet-head"><span>工具</span><button class="m-sheet-close">关闭</button></div>
+    <div class="m-sheet-body">
+      <button class="m-big" data-cmd="basemap"><span class="m-big-ico">▤</span>导入底图</button>
+      <button class="m-big" data-cmd="calibrate"><span class="m-big-ico">⟷</span>两点定标</button>
+      <button class="m-big" data-cmd="noise"><span class="m-big-ico">◎</span>识别噪声源</button>
+      <button class="m-big" data-cmd="export-img"><span class="m-big-ico">▧</span>导出图像</button>
+      <button class="m-big" data-cmd="export-pdf"><span class="m-big-ico">▨</span>导出 PDF</button>
+      <button class="m-big" data-cmd="copy-img"><span class="m-big-ico">⧉</span>复制图像</button>
+      <button class="m-big" data-cmd="about"><span class="m-big-ico">ⓘ</span>关于</button>
+    </div>
   </div>
 
   <!-- ── 状态栏 ── -->

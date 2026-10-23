@@ -522,6 +522,9 @@ function switchTab(tab: typeof activeTab): void {
   }
   if (tab === 'contour') contourPlot.resize();
   if (tab === 'entry') entryPlot.resize();
+  document.querySelectorAll('#m-nav .m-tab[data-tab]').forEach((b) => {
+    b.classList.toggle('active', (b as HTMLElement).dataset.tab === tab);
+  });
   renderTree(current());
   updateStatus();
 }
@@ -710,6 +713,7 @@ function getCachedField(item: ProjectWithMeasurements): FieldResult | null {
   const key = [...spl.entries()].sort().toString() + `|${item.project.cols}|${item.project.rows}|${item.project.spacingX}|${item.project.spacingY}|${item.project.backgroundNoiseDb}`;
   if (splFieldCache?.key === key) return splFieldCache.field;
   const field = computeSplField(item.project, spl);
+  if (!field) return null;
   splFieldCache = { key, field };
   return field;
 }
@@ -1355,20 +1359,70 @@ document.querySelectorAll('.menu-panel button[data-cmd]').forEach((b) => {
 });
 
 
-// 窄屏面板抽屉开关
-document.getElementById('btn-toggle-tree')?.addEventListener('click', () => {
-  document.getElementById('sidebar')!.classList.toggle('open');
-  document.getElementById('right-dock')!.classList.remove('open');
+// ───────────────────────── 移动端交互 ─────────────────────────
+
+const mSidebar = document.getElementById('sidebar')!;
+const mDock = document.getElementById('right-dock')!;
+const mMask = document.getElementById('m-mask') as HTMLElement;
+const mTools = document.getElementById('m-sheet-tools') as HTMLElement;
+
+function anySheetOpen(): boolean {
+  return mSidebar.classList.contains('open')
+    || mDock.classList.contains('open')
+    || mTools.classList.contains('open');
+}
+
+function syncMask(): void {
+  mMask.hidden = !anySheetOpen();
+}
+
+function closeAllSheets(): void {
+  mSidebar.classList.remove('open');
+  mDock.classList.remove('open');
+  mTools.classList.remove('open');
+  syncMask();
+}
+
+function openSheet(el: HTMLElement): void {
+  const wasOpen = el.classList.contains('open');
+  closeAllSheets();
+  if (!wasOpen) {
+    el.classList.add('open');
+    syncMask();
+  }
+}
+
+document.getElementById('m-btn-projects')?.addEventListener('click', () => openSheet(mSidebar));
+document.getElementById('m-btn-layers')?.addEventListener('click', () => openSheet(mDock));
+document.getElementById('m-btn-actions')?.addEventListener('click', () => openSheet(mTools));
+document.getElementById('m-btn-tools')?.addEventListener('click', () => openSheet(mTools));
+mMask.addEventListener('click', closeAllSheets);
+document.querySelector('#m-sheet-tools .m-sheet-close')?.addEventListener('click', closeAllSheets);
+
+// 工具抽屉里的按钮复用统一命令
+document.querySelectorAll('#m-sheet-tools [data-cmd]').forEach((b) => {
+  b.addEventListener('click', () => {
+    const cmd = (b as HTMLElement).dataset.cmd!;
+    closeAllSheets();
+    runCmd(cmd);
+  });
 });
-document.getElementById('btn-toggle-dock')?.addEventListener('click', () => {
-  document.getElementById('right-dock')!.classList.toggle('open');
-  document.getElementById('sidebar')!.classList.remove('open');
+
+// 移动端侧栏的四个快捷操作
+document.getElementById('m-new-project')?.addEventListener('click', () => { closeAllSheets(); runCmd('new-project'); });
+document.getElementById('m-demo')?.addEventListener('click', () => { closeAllSheets(); runCmd('demo'); });
+document.getElementById('m-import')?.addEventListener('click', () => { closeAllSheets(); runCmd('import'); });
+document.getElementById('m-export')?.addEventListener('click', () => { closeAllSheets(); runCmd('export'); });
+
+// 移动端底部标签与桌面工具条共用 switchTab
+document.querySelectorAll('#m-nav .m-tab[data-tab]').forEach((b) => {
+  b.addEventListener('click', () => switchTab(((b as HTMLElement).dataset.tab as typeof activeTab) ?? 'entry'));
 });
-// 点击画布时收起抽屉，避免遮挡绘图区
+
+// 点画布收起抽屉，避免遮挡绘图
 for (const el of [entryPlot.canvas, contourPlot.canvas]) {
   el.addEventListener('pointerdown', () => {
-    document.getElementById('sidebar')?.classList.remove('open');
-    document.getElementById('right-dock')?.classList.remove('open');
+    if (anySheetOpen()) closeAllSheets();
   });
 }
 
@@ -1546,6 +1600,13 @@ function renderWorkspace(): void {
 
   alphaSlider.value = String(Math.round(project.overlayAlpha * 100));
   alphaLabel.textContent = `${Math.round(project.overlayAlpha * 100)}%`;
+
+  const mName = document.getElementById('m-project-name');
+  const mSub = document.getElementById('m-subtitle');
+  if (mName) mName.textContent = project.name;
+  if (mSub) {
+    mSub.textContent = `${project.cols}×${project.rows} cell · 已测 ${item.measurements.length}/${pointCount(project)}`;
+  }
 
   refreshBasemapCache(project);
   hintBasemap(project);
