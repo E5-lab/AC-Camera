@@ -837,3 +837,28 @@
     box-shadow: 0 3px 10px rgba(7, 193, 96, 0.35);
   }
 }
+
+/* 等压级图页顶部快捷操作条（移动端） */
+.m-action-strip { display: none; }
+
+@media (max-width: 980px) {
+  .m-action-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--m-bg);
+  }
+  .m-action-strip button {
+    min-height: 42px;
+    font-size: 13.5px;
+    border: none;
+    border-radius: 12px;
+    background: var(--m-card);
+    color: var(--m-text);
+    box-shadow: var(--m-shadow);
+  }
+  .m-action-strip button:active { background: #fbfcfd; }
+  /* 快捷条在等压级图页里位于画布上方 */
+  #tab-contour.split { grid-template-rows: auto 1fr; }
+}

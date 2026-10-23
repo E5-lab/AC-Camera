@@ -1497,6 +1497,7 @@ function openSheet(el: HTMLElement): void {
   const wasOpen = el.classList.contains('open');
   closeAllSheets();
   if (!wasOpen) {
+    el.hidden = false;          // 有的面板在 HTML 里带 hidden，类切换不够
     el.classList.add('open');
     syncMask();
   }
@@ -1513,8 +1514,8 @@ document.getElementById('m-btn-tools')?.addEventListener('click', () => openShee
 mMask.addEventListener('click', closeAllSheets);
 document.querySelector('#m-sheet-tools .m-sheet-close')?.addEventListener('click', closeAllSheets);
 
-// 工具抽屉里的按钮复用统一命令
-document.querySelectorAll('#m-sheet-tools [data-cmd]').forEach((b) => {
+// 工具抽屉与等压级图顶部快捷条，按钮统一复用命令
+document.querySelectorAll('#m-sheet-tools [data-cmd], .m-action-strip [data-cmd]').forEach((b) => {
   b.addEventListener('click', () => {
     const cmd = (b as HTMLElement).dataset.cmd!;
     closeAllSheets();

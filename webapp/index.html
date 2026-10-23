@@ -195,6 +195,11 @@
         </section>
 
         <section id="tab-contour" class="tab-page split" hidden>
+          <div class="m-action-strip">
+            <button data-cmd="basemap">导入底图</button>
+            <button data-cmd="calibrate">两点定标</button>
+            <button data-cmd="noise">识别噪声源</button>
+          </div>
           <div id="contour-canvas-wrap" class="canvas-wrap"></div>
           <aside id="right-dock">
             <div class="dock-sheet-head">
@@ -310,7 +315,7 @@
   <div class="m-sheet-mask" id="m-mask" hidden></div>
 
   <!-- 移动端工具抽屉 -->
-  <div id="m-sheet-tools" class="m-sheet" hidden>
+  <div id="m-sheet-tools" class="m-sheet">
     <div class="m-sheet-head"><span>工具</span><button class="m-sheet-close">关闭</button></div>
     <div class="m-sheet-body">
       <button class="m-big" data-cmd="basemap"><span class="m-big-ico">▤</span>导入底图</button>
