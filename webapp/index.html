@@ -10,24 +10,24 @@
 <div id="app">
   <!-- ── 菜单栏 ── -->
   <nav id="menubar">
-    <div class="brand">
+    <div class="brand" title="NoiseAtlas 噪声图谱 · 厂区噪声普查与预测">
       <img class="logo" src="/icon-32.png" alt="" />
       <span class="brand-text">
         <b>NoiseAtlas</b>
         <small>噪声图谱</small>
       </span>
     </div>
-    <button class="menu" data-menu="file">文件</button>
-    <button class="menu" data-menu="edit">编辑</button>
-    <button class="menu" data-menu="view">视图</button>
-    <button class="menu" data-menu="calc">计算</button>
-    <button class="menu" data-menu="help">帮助</button>
+    <button class="menu" data-menu="file" title="新建 / 导入导出 / 导出图像与 PDF">文件</button>
+    <button class="menu" data-menu="edit" title="删除项目 / 清空测点 / 清除源标记">编辑</button>
+    <button class="menu" data-menu="view" title="视图切换 / 缩放 / 工具栏显示 / 图层显示">视图</button>
+    <button class="menu" data-menu="calc" title="噪声源识别 / 声场重算 / 底图与定标">计算</button>
+    <button class="menu" data-menu="help" title="关于本软件">帮助</button>
     <span class="spacer"></span>
     <span id="menubar-hint" class="hint-inline">厂区噪声网格普查 · 等声压级成图 · 噪声源定位</span>
   </nav>
 
   <div class="menu-panel" id="menu-file" hidden>
-    <button data-cmd="new-project">新建项目…</button>
+    <button data-cmd="new-project">新建项目…<kbd></kbd></button>
     <button data-cmd="demo">载入示例项目</button>
     <div class="menu-sep"></div>
     <button data-cmd="import">导入数据 (JSON)…</button>
@@ -58,6 +58,8 @@
     <div class="menu-sep"></div>
     <button data-cmd="toggle-calib">显示 / 隐藏定标线段</button>
     <button data-cmd="toggle-points">显示 / 隐藏测点</button>
+    <button data-cmd="toggle-dims">显示 / 隐藏网格尺寸</button>
+    <button data-cmd="toggle-scalebar">显示 / 隐藏比例尺</button>
   </div>
 
   <div class="menu-panel" id="menu-calc" hidden>
@@ -74,69 +76,69 @@
 
   <!-- ── 工具条 ── -->
   <header id="toolbar" class="mode-both">
-    <div class="tb-group">
-      <button id="btn-new-project" class="tb">
+    <div class="tb-group" data-cap="项目">
+      <button id="btn-new-project" class="tb" title="新建项目：输入名称、网格列数/行数与间距">
         <svg class="ic" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
-        <span class="tb-label">新建</span>
+        <span class="tb-label">新建项目</span>
       </button>
-      <button id="btn-demo" class="tb">
+      <button id="btn-demo" class="tb" title="载入示例项目：8×6 网格、3 处模拟声源的演示数据">
         <svg class="ic" viewBox="0 0 16 16"><path d="M8 2l1.6 4.4L14 8l-4.4 1.6L8 14l-1.6-4.4L2 8l4.4-1.6z"/></svg>
-        <span class="tb-label">示例</span>
+        <span class="tb-label">示例项目</span>
       </button>
     </div>
     <div class="tb-sep"></div>
-    <div class="tb-group">
-      <button id="btn-import" class="tb">
+    <div class="tb-group" data-cap="数据">
+      <button id="btn-import" class="tb" title="导入数据：读取旧版 AC-Camera / NoiseAtlas 导出的 JSON">
         <svg class="ic" viewBox="0 0 16 16"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>
         <span class="tb-label">导入</span>
       </button>
-      <button id="btn-export" class="tb">
+      <button id="btn-export" class="tb" title="导出数据：把全部项目与测点写成 JSON 文件">
         <svg class="ic" viewBox="0 0 16 16"><path d="M8 11V3M5 6l3-3 3 3M3 13h10"/></svg>
         <span class="tb-label">导出</span>
       </button>
     </div>
     <div class="tb-sep"></div>
-    <div class="tb-group viewtabs">
-      <button data-tab="entry" class="tb viewtab active">
+    <div class="tb-group viewtabs" data-cap="视图">
+      <button data-tab="entry" class="tb viewtab active" title="数据录入：在网格交汇点录入声级计实测值">
         <svg class="ic" viewBox="0 0 16 16"><path d="M3 3h10v10H3zM3 8h10M8 3v10"/></svg>
         <span class="tb-label">数据录入</span>
       </button>
-      <button data-tab="contour" class="tb viewtab">
+      <button data-tab="contour" class="tb viewtab" title="等声压级图：声场热力图 + 等值线 + 噪声源标记">
         <svg class="ic" viewBox="0 0 16 16"><path d="M2 11c2-4 5-6 8-6s4 1 4 1M2 13c3-3 7-4 12-3"/></svg>
         <span class="tb-label">等声压级图</span>
       </button>
-      <button data-tab="settings" class="tb viewtab">
+      <button data-tab="settings" class="tb viewtab" title="网格设置：项目名称、行列数、间距、底噪、参照宽度">
         <svg class="ic" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M12.2 3.8l-1.4 1.4M5.2 10.8l-1.4 1.4"/></svg>
         <span class="tb-label">网格设置</span>
       </button>
     </div>
     <div class="tb-sep"></div>
-    <div class="tb-group zoombar">
-      <button data-zoom="out" class="tb">
+    <div class="tb-group zoombar" data-cap="缩放">
+      <button data-zoom="out" class="tb" title="缩小（也可用鼠标滚轮）">
         <svg class="ic" viewBox="0 0 16 16"><path d="M3 8h10"/></svg>
         <span class="tb-label">缩小</span>
       </button>
-      <button data-zoom="in" class="tb">
+      <button data-zoom="in" class="tb" title="放大（也可用鼠标滚轮）">
         <svg class="ic" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
         <span class="tb-label">放大</span>
       </button>
-      <button data-zoom="fit" class="tb">
+      <button data-zoom="fit" class="tb" title="缩放到全图：恢复 100% 并居中">
         <svg class="ic" viewBox="0 0 16 16"><path d="M2 6V2h4M14 10v4h-4M2 10v4h4M14 6V2h-4"/></svg>
         <span class="tb-label">适应窗口</span>
       </button>
-      <span id="zoom-readout" class="readout">1.0×</span>
+      <span id="zoom-readout" class="readout" title="当前缩放倍率">1.0×</span>
     </div>
     <span class="spacer"></span>
-    <div class="tb-group">
-      <button id="btn-basemap" class="tb">
+    <div class="tb-group" data-cap="底图与计算">
+      <button id="btn-basemap" class="tb" title="导入底图：支持 JPG / PNG / WebP / PDF（第 1 页）/ DXF 线图">
         <svg class="ic" viewBox="0 0 16 16"><path d="M2 4h12v8H2zM2 10l3-3 3 3 2-2 4 4"/></svg>
         <span class="tb-label">导入底图</span>
       </button>
-      <button id="btn-calibrate" class="tb">
+      <button id="btn-calibrate" class="tb" title="两点定标：在底图上点两个已知实际距离的点，输入米数后自动校准比例">
         <svg class="ic" viewBox="0 0 16 16"><path d="M2 12l10-10M4 12v2M7 9v2M10 6v2M12 4v2"/></svg>
         <span class="tb-label">两点定标</span>
       </button>
-      <button id="btn-noise" class="tb strong">
+      <button id="btn-noise" class="tb strong" title="识别噪声源：按阈值找出 8 邻域严格局部极大值，标为红圈">
         <svg class="ic" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1.6"/></svg>
         <span class="tb-label">识别噪声源</span>
       </button>
@@ -144,10 +146,10 @@
   </header>
 
   <div id="body">
-    <!-- ── 左侧：对象树 ── -->
+    <!-- ── 左侧 ── -->
     <aside id="sidebar">
       <div class="panel-title">对象树</div>
-      <div id="obj-tree" class="tree scroll"></div>
+      <div id="obj-tree" class="tree"></div>
 
       <div class="panel-title">项目 <span id="project-count" class="badge">0</span></div>
       <div id="project-list" class="scroll short"></div>
@@ -156,7 +158,7 @@
       <div id="storage-hint" class="hint small"></div>
     </aside>
 
-    <!-- ── 中央：绘图区 ── -->
+    <!-- ── 中央 ── -->
     <main id="main">
       <div id="empty-state" class="empty">
         <div class="empty-box">
@@ -173,48 +175,73 @@
         <section id="tab-contour" class="tab-page split" hidden>
           <div id="contour-canvas-wrap" class="canvas-wrap"></div>
           <aside id="right-dock">
-            <div class="panel-title">显示</div>
-            <div class="chk-list">
-              <label><input type="checkbox" id="chk-calib" checked /> 定标线段</label>
-              <label><input type="checkbox" id="chk-points" checked /> 测点</label>
-              <label><input type="checkbox" id="chk-contours" checked /> 等值线</label>
-              <label><input type="checkbox" id="chk-gridlines" checked /> 网格线</label>
-            </div>
+            <section class="dock-sec" data-sec="layers">
+              <button class="dock-head">图层显示<span class="caret2">▾</span></button>
+              <div class="dock-body">
+                <div class="chk-list">
+                  <label><input type="checkbox" id="chk-points" checked /> 测点</label>
+                  <label><input type="checkbox" id="chk-contours" checked /> 等值线</label>
+                  <label><input type="checkbox" id="chk-gridlines" checked /> 网格线</label>
+                  <label><input type="checkbox" id="chk-dims" checked /> 网格尺寸</label>
+                  <label><input type="checkbox" id="chk-scalebar" checked /> 比例尺</label>
+                  <label><input type="checkbox" id="chk-calib" checked /> 定标线段</label>
+                </div>
+              </div>
+            </section>
 
-            <div class="panel-title">色阶分级</div>
-            <div id="band-choices" class="band-grid"></div>
+            <section class="dock-sec" data-sec="bands">
+              <button class="dock-head">色阶分级<span class="caret2">▾</span></button>
+              <div class="dock-body">
+                <div id="band-choices" class="band-grid"></div>
+                <div class="ctl-row">
+                  <span class="ctl-label">透明度</span>
+                  <input type="range" id="alpha-slider" min="10" max="100" value="72" />
+                  <span id="alpha-label" class="readout">72%</span>
+                </div>
+              </div>
+            </section>
 
-            <div class="panel-title">声场透明度</div>
-            <div class="ctl-row">
-              <input type="range" id="alpha-slider" min="10" max="100" value="72" />
-              <span id="alpha-label" class="readout">72%</span>
-            </div>
+            <section class="dock-sec" data-sec="legend">
+              <button class="dock-head">声压级标尺<span class="caret2">▾</span></button>
+              <div class="dock-body">
+                <div id="contour-legend"></div>
+              </div>
+            </section>
 
-            <div class="panel-title">声压级标尺</div>
-            <div id="contour-legend"></div>
+            <section class="dock-sec" data-sec="basemap">
+              <button class="dock-head">底图对齐<span class="caret2">▾</span></button>
+              <div class="dock-body">
+                <div id="basemap-hint" class="hint small"></div>
+                <div class="btn-grid">
+                  <button data-bm="in" title="底图放大 10%（不影响声场层）">底图＋</button>
+                  <button data-bm="out" title="底图缩小 10%（不影响声场层）">底图－</button>
+                  <button data-bm="left" title="底图左移 2%">←</button>
+                  <button data-bm="right" title="底图右移 2%">→</button>
+                  <button data-bm="up" title="底图上移 2%">↑</button>
+                  <button data-bm="down" title="底图下移 2%">↓</button>
+                  <button data-bm="reset" class="span2" title="底图复位：缩放 1.0、偏移 0">复位底图</button>
+                </div>
+              </div>
+            </section>
 
-            <div class="panel-title">底图对齐</div>
-            <div id="basemap-hint" class="hint small"></div>
-            <div class="btn-grid">
-              <button data-bm="in">底图＋</button>
-              <button data-bm="out">底图－</button>
-              <button data-bm="left">←</button>
-              <button data-bm="right">→</button>
-              <button data-bm="up">↑</button>
-              <button data-bm="down">↓</button>
-              <button data-bm="reset" class="span2">复位底图</button>
-            </div>
+            <section class="dock-sec" data-sec="output">
+              <button class="dock-head">输出<span class="caret2">▾</span></button>
+              <div class="dock-body">
+                <div class="btn-grid">
+                  <button id="btn-export-img" class="span2" title="把当前图纸导出为 PNG 图片">导出图像 (PNG)</button>
+                  <button id="btn-export-pdf" class="span2" title="把当前图纸导出为 A4 PDF">导出 PDF</button>
+                  <button id="btn-copy-img" class="span2" title="复制图像到剪贴板，可直接粘贴到 Word / CAD">复制图像</button>
+                </div>
+              </div>
+            </section>
 
-            <div class="panel-title">输出</div>
-            <div class="btn-grid">
-              <button id="btn-export-img" class="span2">导出图像 (PNG)</button>
-              <button id="btn-export-pdf" class="span2">导出 PDF</button>
-              <button id="btn-copy-img" class="span2">复制图像到剪贴板</button>
-            </div>
-
-            <div class="panel-title">统计</div>
-            <div id="contour-stats" class="kv"></div>
-            <div id="noise-hint" class="hint small"></div>
+            <section class="dock-sec" data-sec="stats">
+              <button class="dock-head">统计<span class="caret2">▾</span></button>
+              <div class="dock-body">
+                <div id="contour-stats" class="kv"></div>
+                <div id="noise-hint" class="hint small"></div>
+              </div>
+            </section>
           </aside>
         </section>
 

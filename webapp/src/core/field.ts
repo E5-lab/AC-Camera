@@ -71,7 +71,17 @@ export function energyField(
   return result;
 }
 
-/** 由测点 + 项目参数算出「带底噪的声压级场」。 */
+/**
+ * 由测点 + 项目参数算出「带底噪的声压级场」。
+ *
+ * 下限（色标最低值）取法：
+ *  - 用户填了底噪 bg > 0 → 全场下限 = bg（物理上不可能低于本底噪声）；
+ *  - 未填底噪（bg = 0） → 不再硬钳到 0 dB，而是按测点声能自然衰减的包络取
+ *    「最安静测点 − DECAY_SPAN dB」，这样色标刻度反映的是真实的衰减范围，
+ *    而不是一个没有物理意义的 0 dB。
+ */
+export const DECAY_SPAN = 18;
+
 export function computeSplField(
   project: { cols: number; rows: number; spacingX: number; spacingY: number; backgroundNoiseDb: number },
   splByPoint: Map<string, number>,
@@ -83,17 +93,24 @@ export function computeSplField(
   const spacing = (project.spacingX + project.spacingY) / 2;
   const atten = spacing > 0 ? 6.0 / spacing : 0.6;
   const pts: PointValue[] = [];
+  let minMeasured = Infinity;
   for (const [key, spl] of splByPoint) {
     const [c, r] = key.split(',').map(Number);
+    if (spl < minMeasured) minMeasured = spl;
     pts.push({ x: c * project.spacingX, y: r * project.spacingY, value: Math.max(0, spl - bg) });
   }
   const excess = energyField(pts, worldW, worldH, atten);
+
+  // 物理下限：有底噪就落在底噪；没有底噪则跟随自然衰减包络（而不是 0 dB）
+  const floor = bg > 0 ? bg : Math.max(0, minMeasured - DECAY_SPAN);
+
   let smin = Infinity;
   let smax = -Infinity;
   for (let i = 0; i < excess.values.length; i++) {
-    excess.values[i] = Math.max(0, excess.values[i]) + bg;
-    if (excess.values[i] < smin) smin = excess.values[i];
-    if (excess.values[i] > smax) smax = excess.values[i];
+    const v = Math.max(excess.values[i] + bg, floor);
+    excess.values[i] = v;
+    if (v < smin) smin = v;
+    if (v > smax) smax = v;
   }
   excess.min = smin;
   excess.max = smax;

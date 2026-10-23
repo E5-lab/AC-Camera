@@ -468,3 +468,49 @@ dialog button { border: 1px solid var(--line-soft); background: #fbfcfd; padding
 
 /* 状态栏小提示 */
 #statusbar #st-hint { color: #77828f; }
+
+/* ───────────── 工具条：窄屏可横向滚动 ───────────── */
+#toolbar { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+#toolbar::-webkit-scrollbar { height: 4px; }
+#toolbar::-webkit-scrollbar-thumb { background: #c3c9d1; border-radius: 2px; }
+
+/* 图标模式下的悬停提示由原生 title 提供；再给按钮一点反馈 */
+#toolbar button.tb { transition: background .12s ease, border-color .12s ease; }
+
+/* ───────────── 右侧可折叠分区 ───────────── */
+#right-dock { padding-bottom: 4px; }
+
+.dock-sec { border-bottom: 1px solid var(--line-soft); }
+.dock-sec:last-child { border-bottom: none; }
+
+.dock-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: linear-gradient(#eef1f4, #e7ebef);
+  border: none;
+  border-radius: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5561;
+  letter-spacing: .3px;
+  cursor: pointer;
+  text-align: left;
+}
+.dock-head:hover { background: #e2e9f1; }
+.dock-head .caret2 { font-size: 9px; color: #7d8794; transition: transform .15s ease; }
+.dock-sec.collapsed .dock-head .caret2 { transform: rotate(-90deg); }
+.dock-sec.collapsed .dock-body { display: none; }
+.dock-body { padding: 2px 0 6px; }
+
+/* 色阶按钮更紧凑 */
+.band-grid { grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 6px 8px; }
+.band-grid button { padding: 4px 0; }
+
+.ctl-row .ctl-label { font-size: 11px; color: var(--muted); flex: none; }
+.chk-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; padding: 8px 10px; }
+
+/* 菜单项右侧留白，后续可加快捷键 */
+.menu-panel button { display: flex; justify-content: space-between; gap: 18px; }

@@ -24,6 +24,10 @@ interface UiPrefs {
   showPoints: boolean;
   showContours: boolean;
   showGridlines: boolean;
+  /** 网格尺寸：场地总宽/总高的尺寸标注 */
+  showDims: boolean;
+  /** 底部距离比例尺 */
+  showScaleBar: boolean;
   toolbarMode: ToolbarMode;
 }
 
@@ -31,7 +35,8 @@ const PREFS_KEY = 'noiseatlas-ui-prefs-v1';
 
 const prefs: UiPrefs = (() => {
   const def: UiPrefs = {
-    showCalib: true, showPoints: true, showContours: true, showGridlines: true, toolbarMode: 'both',
+    showCalib: true, showPoints: true, showContours: true, showGridlines: true,
+    showDims: true, showScaleBar: true, toolbarMode: 'both',
   };
   try {
     const raw = localStorage.getItem(PREFS_KEY);
@@ -207,6 +212,65 @@ function drawRulers(ctx: CanvasRenderingContext2D, world: Rect, p: Project): voi
   ctx.textBaseline = 'bottom';
   ctx.fillStyle = '#9aa4b0';
   ctx.fillText('m', world.left + world.width + 4, world.top - 7);
+  ctx.restore();
+}
+
+
+/** 网格尺寸标注：上方总宽尺寸线 + 左侧总高尺寸线（工程图纸习惯）。 */
+function drawDimensions(ctx: CanvasRenderingContext2D, world: Rect, p: Project): void {
+  const wm = p.cols * p.spacingX;
+  const hm = p.rows * p.spacingY;
+  if (!(wm > 0) || !(hm > 0) || world.width < 120) return;
+
+  ctx.save();
+  ctx.lineWidth = 1;
+  ctx.font = '10px "Segoe UI", system-ui';
+
+  // ── 顶部：总宽 ──
+  const y = world.top - 17;
+  ctx.strokeStyle = '#8b95a1';
+  ctx.beginPath();
+  ctx.moveTo(world.left, y); ctx.lineTo(world.left + world.width, y);
+  ctx.moveTo(world.left, y - 3); ctx.lineTo(world.left, y + 3);
+  ctx.moveTo(world.left + world.width, y - 3); ctx.lineTo(world.left + world.width, y + 3);
+  ctx.moveTo(world.left, y); ctx.lineTo(world.left, world.top - 11);
+  ctx.moveTo(world.left + world.width, y); ctx.lineTo(world.left + world.width, world.top - 11);
+  ctx.stroke();
+
+  const wLabel = `${wm.toFixed(1)} m  (${p.cols} × ${p.spacingX} m)`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(wLabel).width;
+  const cx = world.left + world.width / 2;
+  ctx.fillStyle = 'rgba(240,243,247,0.94)';
+  ctx.fillRect(cx - tw / 2 - 4, y - 7, tw + 8, 14);
+  ctx.fillStyle = '#2f3945';
+  ctx.fillText(wLabel, cx, y);
+
+  // ── 左侧：总高（竖排） ──
+  const x = world.left - 17;
+  ctx.strokeStyle = '#8b95a1';
+  ctx.beginPath();
+  ctx.moveTo(x, world.top); ctx.lineTo(x, world.top + world.height);
+  ctx.moveTo(x - 3, world.top); ctx.lineTo(x + 3, world.top);
+  ctx.moveTo(x - 3, world.top + world.height); ctx.lineTo(x + 3, world.top + world.height);
+  ctx.moveTo(x, world.top); ctx.lineTo(world.left - 11, world.top);
+  ctx.moveTo(x, world.top + world.height); ctx.lineTo(world.left - 11, world.top + world.height);
+  ctx.stroke();
+
+  const hLabel = `${hm.toFixed(1)} m  (${p.rows} × ${p.spacingY} m)`;
+  ctx.save();
+  ctx.translate(x, world.top + world.height / 2);
+  ctx.rotate(-Math.PI / 2);
+  const hw = ctx.measureText(hLabel).width;
+  ctx.fillStyle = 'rgba(240,243,247,0.94)';
+  ctx.fillRect(-hw / 2 - 4, -7, hw + 8, 14);
+  ctx.fillStyle = '#2f3945';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(hLabel, 0, 0);
+  ctx.restore();
+
   ctx.restore();
 }
 
@@ -559,8 +623,9 @@ entryPlot.setPainter((world) => {
   }
 
   drawRulers(ctx, world, project);
+  if (prefs.showDims) drawDimensions(ctx, world, project);
   drawTitleBlock(ctx, world, project);
-  drawScaleBar(ctx, world, project.planReferenceMeters, entryPlot.transform.zoom);
+  if (prefs.showScaleBar) drawScaleBar(ctx, world, project.planReferenceMeters, entryPlot.transform.zoom);
 });
 
 entryPlot.onHover = (u, v) => reportCoords(u, v);
@@ -742,9 +807,10 @@ contourPlot.setPainter((world) => {
 
   if (prefs.showCalib) drawCalibration(ctx, world, project);
   drawRulers(ctx, world, project);
+  if (prefs.showDims) drawDimensions(ctx, world, project);
   drawSplScale(ctx, world, field, project.contourColorBands);
   drawTitleBlock(ctx, world, project);
-  drawScaleBar(ctx, world, project.planReferenceMeters, contourPlot.transform.zoom);
+  if (prefs.showScaleBar) drawScaleBar(ctx, world, project.planReferenceMeters, contourPlot.transform.zoom);
 });
 
 alphaSlider.addEventListener('input', () => {
@@ -775,6 +841,8 @@ bindToggle('chk-calib', 'showCalib');
 bindToggle('chk-points', 'showPoints');
 bindToggle('chk-contours', 'showContours');
 bindToggle('chk-gridlines', 'showGridlines');
+bindToggle('chk-dims', 'showDims');
+bindToggle('chk-scalebar', 'showScaleBar');
 
 // ── 色阶 ──
 
@@ -1286,6 +1354,14 @@ document.querySelectorAll('.menu-panel button[data-cmd]').forEach((b) => {
   });
 });
 
+
+// 右侧分区折叠
+document.querySelectorAll('#right-dock .dock-head').forEach((h) => {
+  h.addEventListener('click', () => {
+    (h.parentElement as HTMLElement).classList.toggle('collapsed');
+  });
+});
+
 function applyToolbarMode(mode: ToolbarMode): void {
   prefs.toolbarMode = mode;
   savePrefs();
@@ -1346,6 +1422,20 @@ function runCmd(cmd: string): void {
       savePrefs();
       (document.getElementById('chk-points') as HTMLInputElement).checked = prefs.showPoints;
       contourPlot.paint();
+      break;
+    case 'toggle-dims':
+      prefs.showDims = !prefs.showDims;
+      savePrefs();
+      (document.getElementById('chk-dims') as HTMLInputElement).checked = prefs.showDims;
+      contourPlot.paint();
+      entryPlot.paint();
+      break;
+    case 'toggle-scalebar':
+      prefs.showScaleBar = !prefs.showScaleBar;
+      savePrefs();
+      (document.getElementById('chk-scalebar') as HTMLInputElement).checked = prefs.showScaleBar;
+      contourPlot.paint();
+      entryPlot.paint();
       break;
     case 'noise': runNoiseDetect(); break;
     case 'recompute':
