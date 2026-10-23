@@ -19,6 +19,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 let store: ProjectWithMeasurements[] = load();
 let currentId: number | null = null;
+let activeTab: 'entry' | 'contour' | 'settings' = 'entry';
 
 function current(): ProjectWithMeasurements | null {
   return store.find((p) => p.project.id === currentId) ?? null;
@@ -69,7 +70,6 @@ function refreshBasemapCache(p: Project): void {
   }
 }
 
-/** contain-fit 底图矩形，再叠加用户独立缩放/平移（底图对齐）。 */
 function alignBaseMap(fitted: Rect, world: Rect, scale: number, offX: number, offY: number): Rect {
   const s = Number.isFinite(scale) && scale > 0 ? Math.min(5, Math.max(0.2, scale)) : 1;
   if (s === 1 && offX === 0 && offY === 0) return fitted;
@@ -118,17 +118,75 @@ function drawBasemap(ctx: CanvasRenderingContext2D, world: Rect, p: Project): vo
   ctx.restore();
 }
 
-/** 参照宽度比例尺（左下角，带白描边）。 */
+// ───────────────────────── 图纸装饰：纸面、边框、标尺、比例尺 ─────────────────────────
+
+function drawPaper(ctx: CanvasRenderingContext2D, world: Rect): void {
+  ctx.save();
+  ctx.fillStyle = '#fbfcfd';
+  ctx.fillRect(world.left, world.top, world.width, world.height);
+  ctx.strokeStyle = '#6d7681';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(world.left + 0.5, world.top + 0.5, world.width - 1, world.height - 1);
+  ctx.restore();
+}
+
+function niceStep(pxPerMeter: number, targetPx = 90): number {
+  const meters = targetPx / Math.max(1e-9, pxPerMeter);
+  const exp = Math.floor(Math.log10(meters));
+  const base = Math.pow(10, exp);
+  const f = meters / base;
+  const nf = f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10;
+  return nf * base;
+}
+
+/** 图纸上方/左侧的米制标尺（工程图纸观感）。 */
+function drawRulers(ctx: CanvasRenderingContext2D, world: Rect, p: Project): void {
+  const wm = p.cols * p.spacingX;
+  const hm = p.rows * p.spacingY;
+  if (!(wm > 0) || !(hm > 0)) return;
+  const pxPerMeter = world.width / wm;
+  const step = niceStep(pxPerMeter);
+
+  ctx.save();
+  ctx.strokeStyle = '#aeb7c2';
+  ctx.fillStyle = '#dfe5ec';
+  ctx.lineWidth = 1;
+  ctx.font = '10px "Segoe UI", system-ui';
+
+  ctx.beginPath();
+  for (let m = 0; m <= wm + 1e-6; m += step) {
+    const x = world.left + m * pxPerMeter;
+    ctx.moveTo(x, world.top - 5); ctx.lineTo(x, world.top);
+  }
+  for (let m = 0; m <= hm + 1e-6; m += step) {
+    const y = world.top + m * pxPerMeter;
+    ctx.moveTo(world.left - 5, y); ctx.lineTo(world.left, y);
+  }
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  for (let m = 0; m <= wm + 1e-6; m += step) {
+    ctx.fillText(`${Math.round(m)}`, world.left + m * pxPerMeter, world.top - 7);
+  }
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let m = step; m <= hm + 1e-6; m += step) {
+    ctx.fillText(`${Math.round(m)}`, world.left - 8, world.top + m * pxPerMeter);
+  }
+  // 单位注记
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = '#9aa4b0';
+  ctx.fillText('m', world.left + world.width + 4, world.top - 7);
+  ctx.restore();
+}
+
 function drawScaleBar(ctx: CanvasRenderingContext2D, world: Rect, planRef: number | null | undefined, zoom: number): void {
   if (!planRef || planRef <= 0) return;
   const pxPerMeter = world.width / planRef / zoom;
   if (!(pxPerMeter > 0)) return;
-  const target = 100 / pxPerMeter;
-  const exp = Math.floor(Math.log10(target));
-  const base = Math.pow(10, exp);
-  const f = target / base;
-  const nf = f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10;
-  const meters = nf * base;
+  const meters = niceStep(pxPerMeter, 100);
   const barPx = meters * pxPerMeter;
   const x0 = world.left + 12;
   const y = world.top + world.height - 14;
@@ -136,17 +194,51 @@ function drawScaleBar(ctx: CanvasRenderingContext2D, world: Rect, planRef: numbe
   ctx.strokeStyle = 'rgba(255,255,255,0.9)';
   ctx.lineWidth = 4.5;
   ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + barPx, y); ctx.stroke();
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#1c2430';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(x0, y); ctx.lineTo(x0 + barPx, y);
-  ctx.moveTo(x0, y - 6); ctx.lineTo(x0, y + 6);
-  ctx.moveTo(x0 + barPx, y - 6); ctx.lineTo(x0 + barPx, y + 6);
+  ctx.moveTo(x0, y - 5); ctx.lineTo(x0, y + 5);
+  ctx.moveTo(x0 + barPx / 2, y - 3); ctx.lineTo(x0 + barPx / 2, y + 3);
+  ctx.moveTo(x0 + barPx, y - 5); ctx.lineTo(x0 + barPx, y + 5);
   ctx.stroke();
-  ctx.fillStyle = '#000';
-  ctx.font = 'bold 12px system-ui';
+  ctx.fillStyle = '#1c2430';
+  ctx.font = 'bold 11px "Segoe UI", system-ui';
   ctx.textAlign = 'left';
-  ctx.fillText(meters >= 1 ? `${meters} m` : `${meters.toFixed(1)} m`, x0, y - 10);
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(meters >= 1 ? `${meters} m` : `${meters.toFixed(1)} m`, x0, y - 7);
+  ctx.restore();
+}
+
+/** A4-ish 图纸标题块（右下角），工程软件常见做法。 */
+function drawTitleBlock(ctx: CanvasRenderingContext2D, world: Rect, p: Project): void {
+  const w = Math.min(240, world.width * 0.42);
+  const h = 46;
+  if (world.width < 320 || world.height < 200) return;
+  const x = world.left + world.width - w - 8;
+  const y = world.top + world.height - h - 8;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.strokeStyle = '#8b95a1';
+  ctx.lineWidth = 1;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ctx.strokeStyle = '#d6dbe1';
+  ctx.beginPath();
+  ctx.moveTo(x, y + 18); ctx.lineTo(x + w, y + 18);
+  ctx.stroke();
+  ctx.fillStyle = '#1c2430';
+  ctx.font = 'bold 11px "Segoe UI", system-ui';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(p.name.slice(0, 24), x + 8, y + 9);
+  ctx.font = '10px "Segoe UI", system-ui';
+  ctx.fillStyle = '#5a6472';
+  ctx.fillText(
+    `${p.cols}×${p.rows} cell · ${(p.cols + 1) * (p.rows + 1)} 点 · 间距 ${p.spacingX}×${p.spacingY} m`,
+    x + 8, y + 28,
+  );
+  ctx.fillText(`底噪 ${p.backgroundNoiseDb} dBA`, x + 8, y + 40);
   ctx.restore();
 }
 
@@ -154,19 +246,21 @@ function drawScaleBar(ctx: CanvasRenderingContext2D, world: Rect, planRef: numbe
 
 const projectListEl = document.getElementById('project-list')!;
 const storageHintEl = document.getElementById('storage-hint')!;
+const projectCountEl = document.getElementById('project-count')!;
+const projectSummaryEl = document.getElementById('project-summary')!;
 
 function renderSidebar(): void {
   projectListEl.innerHTML = '';
-  for (const { project } of sortStore()) {
+  const list = sortStore();
+  projectCountEl.textContent = String(list.length);
+  for (const { project } of list) {
     const item = document.createElement('div');
     item.className = 'project-item' + (project.id === currentId ? ' active' : '');
-    item.innerHTML = `
-      <div class="p-name"></div>
-      <div class="p-meta"></div>
-      <button class="p-del danger-link" title="删除项目">删除</button>`;
+    item.innerHTML = `<div class="p-name"></div><div class="p-meta"></div>
+      <button class="p-del" title="删除项目">删除</button>`;
     item.querySelector('.p-name')!.textContent = project.name;
     item.querySelector('.p-meta')!.textContent =
-      `${project.cols}×${project.rows} 格 · ${(project.cols + 1) * (project.rows + 1)} 点 · ${project.spacingX}×${project.spacingY} m`;
+      `${project.cols}×${project.rows} cell · ${(project.cols + 1) * (project.rows + 1)} 点`;
     item.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).classList.contains('p-del')) return;
       currentId = project.id;
@@ -188,7 +282,28 @@ function renderSidebar(): void {
   }
 }
 
-// ───────────────────────── new project ─────────────────────────
+function renderSummary(item: ProjectWithMeasurements | null): void {
+  if (!item) { projectSummaryEl.innerHTML = '<span class="k">—</span><span class="v"></span>'; return; }
+  const p = item.project;
+  const rows: Array<[string, string]> = [
+    ['名称', p.name],
+    ['网格', `${p.cols} × ${p.rows} cell`],
+    ['测点', `${item.measurements.length} / ${pointCount(p)}`],
+    ['间距', `${p.spacingX} × ${p.spacingY} m`],
+    ['场地', `${(p.cols * p.spacingX).toFixed(1)} × ${(p.rows * p.spacingY).toFixed(1)} m`],
+    ['底噪', `${p.backgroundNoiseDb} dBA`],
+    ['底图', p.backgroundDxfText ? 'CAD' : p.backgroundImageData ? '位图' : '无'],
+  ];
+  projectSummaryEl.innerHTML = rows
+    .map(([k, v]) => `<span class="k">${k}</span><span class="v">${escapeHtml(v)}</span>`)
+    .join('');
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+}
+
+// ───────────────────────── new / demo project ─────────────────────────
 
 document.getElementById('btn-new-project')!.addEventListener('click', () => {
   const name = prompt('项目名称：', '新项目');
@@ -204,18 +319,16 @@ document.getElementById('btn-new-project')!.addEventListener('click', () => {
   renderAll();
 });
 
-// ───────────────────────── demo project ─────────────────────────
-
 document.getElementById('btn-demo')!.addEventListener('click', () => {
   const p = newProject('示例 · 机加工车间', '演示数据：2 台冲床 + 1 台空压机', 8, 6, 5, 5);
+  p.backgroundNoiseDb = 55;
   const measurements: Measurement[] = [];
-  // 三个"声源"位置 + 底噪 55 dBA，生成一个有层次的示例场
   const sources: Array<[number, number, number]> = [[2, 2, 92], [6, 1, 88], [5, 5, 85]];
   let seed = 42;
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   for (let c = 0; c <= p.cols; c++) {
     for (let r = 0; r <= p.rows; r++) {
-      let spl = 55 + rnd() * 3; // 底噪附近抖动
+      let spl = 55 + rnd() * 3;
       for (const [sc, sr, base] of sources) {
         const d = Math.hypot(c - sc, r - sr);
         spl = Math.max(spl, base - 6 * d + rnd() * 2);
@@ -265,34 +378,50 @@ document.getElementById('import-file')!.addEventListener('change', async (e) => 
 
 const emptyEl = document.getElementById('empty-state')!;
 const wsEl = document.getElementById('workspace')!;
+const zoomReadoutEl = document.getElementById('zoom-readout')!;
 
-document.querySelectorAll('#tabs .tab').forEach((btn) => {
+function syncTabButtons(): void {
+  document.querySelectorAll('.viewtab').forEach((b) => {
+    b.classList.toggle('active', (b as HTMLElement).dataset.tab === activeTab);
+  });
+}
+
+document.querySelectorAll('.viewtab').forEach((btn) => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('#tabs .tab').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    const tab = (btn as HTMLElement).dataset.tab!;
+    activeTab = ((btn as HTMLElement).dataset.tab as typeof activeTab) ?? 'entry';
+    syncTabButtons();
     for (const page of document.querySelectorAll('.tab-page')) {
-      (page as HTMLElement).hidden = page.id !== `tab-${tab}`;
+      (page as HTMLElement).hidden = page.id !== `tab-${activeTab}`;
     }
-    if (tab === 'contour') contourPlot.resize();
-    if (tab === 'entry') entryPlot.resize();
+    if (activeTab === 'contour') contourPlot.resize();
+    if (activeTab === 'entry') entryPlot.resize();
+    updateStatus();
+  });
+});
+
+function activePlot(): PlotCanvas {
+  return activeTab === 'contour' ? contourPlot : entryPlot;
+}
+
+document.querySelectorAll('[data-zoom]').forEach((b) => {
+  b.addEventListener('click', () => {
+    const k = (b as HTMLElement).dataset.zoom!;
+    const plot = activePlot();
+    if (k === 'fit') plot.fit();
+    else plot.zoomStep(k === 'in' ? 1.25 : 1 / 1.25);
   });
 });
 
 // ───────────────────────── entry tab ─────────────────────────
 
 const entryPlot = new PlotCanvas(document.getElementById('entry-canvas-wrap')!);
-const entryProgressEl = document.getElementById('entry-progress')!;
-const entryZoomLabel = document.getElementById('entry-zoom-label')!;
-entryPlot.onZoomChange = (z) => (entryZoomLabel.textContent = `${z.toFixed(1)}×`);
 
-document.querySelectorAll('[data-zoom]').forEach((b) => {
-  b.addEventListener('click', () => {
-    const k = (b as HTMLElement).dataset.zoom!;
-    if (k === 'fit') entryPlot.fit();
-    else entryPlot.zoomStep(k === 'in' ? 1.25 : 1 / 1.25);
-  });
-});
+function reportZoom(z: number): void {
+  zoomReadoutEl.textContent = `${z.toFixed(1)}×`;
+  updateStatus();
+}
+
+entryPlot.onZoomChange = reportZoom;
 
 function splColor(t: number): string {
   const [r, g, b] = colormap(t);
@@ -308,18 +437,18 @@ entryPlot.setPainter((world) => {
   const cw = world.width / cols;
   const ch = world.height / rows;
 
-  ctx.fillStyle = '#f6f7fa';
-  ctx.fillRect(world.left, world.top, world.width, world.height);
+  drawPaper(ctx, world);
   drawBasemap(ctx, world, project);
 
-  ctx.strokeStyle = 'rgba(60,70,90,0.35)';
+  // 网格线：细实线，外框加深
+  ctx.strokeStyle = 'rgba(70,84,100,0.30)';
   ctx.lineWidth = 0.7;
   ctx.beginPath();
-  for (let c = 0; c <= cols; c++) {
+  for (let c = 1; c < cols; c++) {
     ctx.moveTo(world.left + c * cw, world.top);
     ctx.lineTo(world.left + c * cw, world.top + world.height);
   }
-  for (let r = 0; r <= rows; r++) {
+  for (let r = 1; r < rows; r++) {
     ctx.moveTo(world.left, world.top + r * ch);
     ctx.lineTo(world.left + world.width, world.top + r * ch);
   }
@@ -329,6 +458,7 @@ entryPlot.setPainter((world) => {
   const values = [...spl.values()];
   const min = values.length ? Math.min(...values) : 0;
   const max = values.length ? Math.max(...values, min + 1e-6) : 1;
+  const dense = Math.min(cw, ch) < 26;
   for (let c = 0; c <= cols; c++) {
     for (let r = 0; r <= rows; r++) {
       const px = world.left + c * cw;
@@ -336,32 +466,38 @@ entryPlot.setPainter((world) => {
       const v = spl.get(`${c},${r}`);
       if (v !== undefined) {
         const t = (v - min) / (max - min || 1);
+        const rad = Math.max(4, Math.min(10, Math.min(cw, ch) * 0.26));
         ctx.beginPath();
-        ctx.arc(px, py, 9, 0, Math.PI * 2);
+        ctx.arc(px, py, rad, 0, Math.PI * 2);
         ctx.fillStyle = splColor(t);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
-        if (entryPlot.transform.zoom >= 1.8) {
+        if (!dense && entryPlot.transform.zoom >= 1.6) {
           ctx.fillStyle = '#111';
-          ctx.font = '11px system-ui';
+          ctx.font = '10px "Segoe UI", system-ui';
           ctx.textAlign = 'center';
-          ctx.fillText(v.toFixed(0), px, py - 13);
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(v.toFixed(0), px, py - rad - 2);
         }
       } else {
-        ctx.strokeStyle = 'rgba(80,90,110,0.55)';
+        ctx.strokeStyle = 'rgba(90,104,122,0.55)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(px - 4, py); ctx.lineTo(px + 4, py);
-        ctx.moveTo(px, py - 4); ctx.lineTo(px, py + 4);
+        ctx.moveTo(px - 3.5, py); ctx.lineTo(px + 3.5, py);
+        ctx.moveTo(px, py - 3.5); ctx.lineTo(px, py + 3.5);
         ctx.stroke();
       }
     }
   }
+
+  drawRulers(ctx, world, project);
+  drawTitleBlock(ctx, world, project);
   drawScaleBar(ctx, world, project.planReferenceMeters, entryPlot.transform.zoom);
 });
 
+entryPlot.onHover = (u, v) => reportCoords(u, v);
 entryPlot.onTap = (col, row) => {
   const item = current();
   if (!item) return;
@@ -383,7 +519,7 @@ function openPointDialog(item: ProjectWithMeasurements, col: number, row: number
   const existing = item.measurements.find((m) => m.col === col && m.row === row);
   const { project } = item;
   (document.getElementById('pd-title') as HTMLElement).textContent =
-    `测点 (列 ${col}, 行 ${row}) · x=${(col * project.spacingX).toFixed(1)}m y=${(row * project.spacingY).toFixed(1)}m`;
+    `测点 (列 ${col}, 行 ${row}) · x=${(col * project.spacingX).toFixed(1)} m  y=${(row * project.spacingY).toFixed(1)} m`;
   (document.getElementById('pd-spl') as HTMLInputElement).value = existing ? String(existing.spl) : '';
   (document.getElementById('pd-note') as HTMLInputElement).value = existing?.note ?? '';
   (document.getElementById('pd-clear') as HTMLElement).style.display = existing ? '' : 'none';
@@ -422,12 +558,14 @@ document.getElementById('pd-clear')!.addEventListener('click', () => {
 const contourPlot = new PlotCanvas(document.getElementById('contour-canvas-wrap')!);
 const alphaSlider = document.getElementById('alpha-slider') as HTMLInputElement;
 const alphaLabel = document.getElementById('alpha-label')!;
-const contourZoomLabel = document.getElementById('contour-zoom-label')!;
-contourPlot.onZoomChange = (z) => (contourZoomLabel.textContent = `${z.toFixed(1)}×`);
 const contourLegendEl = document.getElementById('contour-legend')!;
 const bandChoicesEl = document.getElementById('band-choices')!;
 const basemapHintEl = document.getElementById('basemap-hint')!;
 const noiseHintEl = document.getElementById('noise-hint')!;
+const contourStatsEl = document.getElementById('contour-stats')!;
+
+contourPlot.onZoomChange = reportZoom;
+contourPlot.onHover = (u, v) => reportCoords(u, v);
 
 let splFieldCache: { key: string; field: FieldResult } | null = null;
 
@@ -451,8 +589,7 @@ contourPlot.setPainter((world) => {
   const cw = world.width / cols;
   const ch = world.height / rows;
 
-  ctx.fillStyle = '#eef1f5';
-  ctx.fillRect(world.left, world.top, world.width, world.height);
+  drawPaper(ctx, world);
   drawBasemap(ctx, world, project);
 
   // 声场热力图 + 等值线
@@ -467,10 +604,9 @@ contourPlot.setPainter((world) => {
     ctx.drawImage(off, world.left, world.top, world.width, world.height);
     ctx.imageSmoothingEnabled = true;
 
-    // 等值线（Marching Squares，与 Kotlin 版同一实现）
     const levels = defaultLevels(field.min, field.max);
-    ctx.strokeStyle = 'rgba(30,30,30,0.65)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(25,28,34,0.55)';
+    ctx.lineWidth = 0.9;
     ctx.beginPath();
     for (const level of levels) {
       for (const s of contours(field, level)) {
@@ -481,8 +617,8 @@ contourPlot.setPainter((world) => {
     ctx.stroke();
   }
 
-  // 网格线
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  // 网格
+  ctx.strokeStyle = 'rgba(255,255,255,0.32)';
   ctx.lineWidth = 0.6;
   ctx.beginPath();
   for (let c = 0; c <= cols; c++) {
@@ -495,7 +631,7 @@ contourPlot.setPainter((world) => {
   }
   ctx.stroke();
 
-  // 测点 + 噪声源黑圈
+  // 测点 + 噪声源
   const spl = splMap(item);
   const range = field ? field.max - field.min : 1;
   for (let c = 0; c <= cols; c++) {
@@ -507,39 +643,34 @@ contourPlot.setPainter((world) => {
       if (v !== undefined && field) {
         const [cr, cg, cb] = colormap((v - field.min) / (range || 1));
         ctx.beginPath();
-        ctx.arc(px, py, 7, 0, Math.PI * 2);
+        ctx.arc(px, py, 6.5, 0, Math.PI * 2);
         ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
         if (m?.isNoiseSource) {
           ctx.beginPath();
-          ctx.arc(px, py, 13, 0, Math.PI * 2);
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 3;
+          ctx.arc(px, py, 12, 0, Math.PI * 2);
+          ctx.strokeStyle = '#c0392b';
+          ctx.lineWidth = 2.2;
           ctx.stroke();
         }
       } else {
-        ctx.strokeStyle = 'rgba(80,90,110,0.5)';
+        ctx.strokeStyle = 'rgba(70,84,100,0.5)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(px - 4, py); ctx.lineTo(px + 4, py);
-        ctx.moveTo(px, py - 4); ctx.lineTo(px, py + 4);
+        ctx.moveTo(px - 3.5, py); ctx.lineTo(px + 3.5, py);
+        ctx.moveTo(px, py - 3.5); ctx.lineTo(px, py + 3.5);
         ctx.stroke();
       }
     }
   }
-  drawCalibration(ctx, world, project);
-  drawScaleBar(ctx, world, project.planReferenceMeters, contourPlot.transform.zoom);
-});
 
-document.querySelectorAll('[data-czoom]').forEach((b) => {
-  b.addEventListener('click', () => {
-    const k = (b as HTMLElement).dataset.czoom!;
-    if (k === 'fit') contourPlot.fit();
-    else contourPlot.zoomStep(k === 'in' ? 1.25 : 1 / 1.25);
-  });
+  drawCalibration(ctx, world, project);
+  drawRulers(ctx, world, project);
+  drawTitleBlock(ctx, world, project);
+  drawScaleBar(ctx, world, project.planReferenceMeters, contourPlot.transform.zoom);
 });
 
 alphaSlider.addEventListener('input', () => {
@@ -560,50 +691,75 @@ function renderBandChoices(): void {
   bandChoicesEl.innerHTML = '';
   for (const b of [8, 16, 24, 32, 64, 128, 256]) {
     const btn = document.createElement('button');
-    btn.className = 'band-btn' + (item.project.contourColorBands === b ? ' active' : '');
+    btn.className = item.project.contourColorBands === b ? 'active' : '';
     btn.textContent = String(b);
     btn.addEventListener('click', () => {
       item.project.contourColorBands = b;
       touch(item.project);
       persist();
       renderBandChoices();
+      renderLegend(item);
       contourPlot.paint();
     });
     bandChoicesEl.appendChild(btn);
   }
 }
 
+/** CadnaA 风格竖向色标：低值在底部，右侧标注分贝刻度。 */
 function renderLegend(item: ProjectWithMeasurements): void {
   const bands = item.project.contourColorBands;
   const colors = bandColors(bands, quantizeStep(bands));
   const field = getCachedField(item);
   const lo = field ? field.min : 0;
   const hi = field ? field.max : 100;
-  const cells = colors.map((c) => `<span style="background:rgb(${c[0]},${c[1]},${c[2]})"></span>`).join('');
+
   contourLegendEl.innerHTML = `
-    <div class="legend-title">声压级 (dB) · 色阶 ${bands} 级（蓝低 → 红高）</div>
-    <div class="legend-bar">${cells}</div>
-    <div class="legend-scale">
-      <span>${lo.toFixed(0)}</span><span>${(lo + (hi - lo) * 0.25).toFixed(0)}</span>
-      <span>${((lo + hi) / 2).toFixed(0)}</span><span>${(lo + (hi - lo) * 0.75).toFixed(0)}</span>
-      <span>${hi.toFixed(0)}</span>
-    </div>`;
+    <div class="legend-vbar">
+      <canvas id="legend-canvas" width="26" height="190"></canvas>
+      <div class="legend-ticks">
+        <span>${hi.toFixed(0)}</span>
+        <span>${(lo + (hi - lo) * 0.75).toFixed(0)}</span>
+        <span>${((lo + hi) / 2).toFixed(0)}</span>
+        <span>${(lo + (hi - lo) * 0.25).toFixed(0)}</span>
+        <span>${lo.toFixed(0)}</span>
+      </div>
+    </div>
+    <div class="legend-note">${
+      field
+        ? `色阶 ${bands} 级 · 低值蓝 → 高值红`
+        : `色阶 ${bands} 级 · 尚未录入测点`
+    }</div>
+    <div class="legend-note">边框：红圈 = 疑似噪声源；虚线 = 定标线段</div>`;
+
+  const cv = document.getElementById('legend-canvas') as HTMLCanvasElement | null;
+  if (!cv) return;
+  const ctx = cv.getContext('2d')!;
+  const n = colors.length;
+  const bandH = cv.height / n;
+  for (let i = 0; i < n; i++) {
+    // 底部是最低值
+    const [r, g, b] = colors[n - 1 - i];
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, i * bandH, cv.width, Math.ceil(bandH) + 0.5);
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+  ctx.strokeRect(0.5, 0.5, cv.width - 1, cv.height - 1);
 }
 
-// ── 底图导入（图片 / PDF / DXF）──
+// ── 底图导入 ──
 
 function hintBasemap(p: Project): void {
   const kind = p.backgroundDxfText
     ? 'CAD 矢量线图'
     : p.backgroundImageData
-      ? '位图（图片或 PDF 第 1 页）'
+      ? '位图（图片 / PDF 第 1 页）'
       : '';
   const cal = p.baseMapCalibration;
   basemapHintEl.textContent = !kind
-    ? '未导入底图'
+    ? '未导入底图。支持 JPG / PNG / WebP / PDF / DXF。'
     : cal
-      ? `底图：${kind} · 已定标 ${cal.meters.toFixed(1)} m（缩放 ${p.baseMapScale.toFixed(2)}×）`
-      : `底图：${kind} · 未定标（可用「两点定标」校准比例）`;
+      ? `${kind} · 已定标 ${cal.meters.toFixed(1)} m · 缩放 ${p.baseMapScale.toFixed(2)}×`
+      : `${kind} · 未定标（建议用「两点定标」校准比例）`;
 }
 
 async function downscaleToDataUrl(src: CanvasImageSource, w: number, h: number, max = 1600): Promise<string> {
@@ -622,7 +778,10 @@ async function downscaleToDataUrl(src: CanvasImageSource, w: number, h: number, 
 
 const basemapFile = document.getElementById('basemap-file') as HTMLInputElement;
 
-document.getElementById('btn-basemap')!.addEventListener('click', () => basemapFile.click());
+document.getElementById('btn-basemap')!.addEventListener('click', () => {
+  if (!current()) { alert('请先打开项目'); return; }
+  basemapFile.click();
+});
 
 basemapFile.addEventListener('change', async () => {
   const item = current();
@@ -662,19 +821,20 @@ basemapFile.addEventListener('change', async () => {
         URL.revokeObjectURL(url);
       }
     }
+    // 新底图 → 旧定标失效
+    item.project.baseMapCalibration = null;
     touch(item.project);
     persist();
     refreshBasemapCache(item.project);
     hintBasemap(item.project);
-    entryPlot.paint();
-    contourPlot.paint();
+    renderAll();
   } catch (err) {
     alert('底图导入失败：' + (err as Error).message);
   }
   basemapFile.value = '';
 });
 
-// ── 底图独立对齐（只动底图，不动声场层）──
+// ── 底图独立对齐 ──
 
 document.querySelectorAll('[data-bm]').forEach((b) => {
   b.addEventListener('click', () => {
@@ -691,12 +851,13 @@ document.querySelectorAll('[data-bm]').forEach((b) => {
     else if (k === 'reset') { p.baseMapScale = 1; p.baseMapOffsetX = 0; p.baseMapOffsetY = 0; }
     touch(p);
     persist();
+    hintBasemap(p);
     entryPlot.paint();
     contourPlot.paint();
   });
 });
 
-// ── 两点定标：在底图上选两点 + 输入实际长度 → 自动换算底图缩放，使底图与网格米制一致 ──
+// ── 两点定标 ──
 
 const calibBanner = document.getElementById('calib-banner') as HTMLElement;
 const calibrateBtn = document.getElementById('btn-calibrate') as HTMLButtonElement;
@@ -708,17 +869,21 @@ function setCalibMode(on: boolean): void {
   calibPts = [];
   contourPlot.rawTapMode = on;
   calibBanner.hidden = !on;
-  calibrateBtn.classList.toggle('primary', on);
-  contourPlot.canvas.style.cursor = on ? 'crosshair' : 'crosshair';
+  calibrateBtn.classList.toggle('active', on);
   contourPlot.paint();
 }
 
-calibrateBtn.addEventListener('click', () => setCalibMode(!calibMode));
+calibrateBtn.addEventListener('click', () => {
+  if (!calibMode && activeTab !== 'contour') {
+    (document.querySelector('.viewtab[data-tab="contour"]') as HTMLElement)?.click();
+  }
+  setCalibMode(!calibMode);
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && calibMode) setCalibMode(false);
 });
 
-/** 画定标线段：校准模式显示已点的点，保存后常显并标注实际长度。 */
 function drawCalibration(ctx: CanvasRenderingContext2D, world: Rect, p: Project): void {
   const saved = p.baseMapCalibration;
   let a: { u: number; v: number } | null = null;
@@ -731,7 +896,7 @@ function drawCalibration(ctx: CanvasRenderingContext2D, world: Rect, p: Project)
   } else if (saved) {
     a = { u: saved.u1, v: saved.v1 };
     b = { u: saved.u2, v: saved.v2 };
-    label = `${saved.meters.toFixed(1)} m（定标）`;
+    label = `${saved.meters.toFixed(1)} m`;
   }
   if (!a) return;
 
@@ -741,10 +906,10 @@ function drawCalibration(ctx: CanvasRenderingContext2D, world: Rect, p: Project)
   });
   const pa = toPx(a);
   ctx.save();
-  ctx.strokeStyle = '#f0b429';
-  ctx.fillStyle = '#f0b429';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = '#c8920a';
+  ctx.fillStyle = '#c8920a';
+  ctx.lineWidth = 1.8;
+  ctx.setLineDash([7, 4]);
   if (b) {
     const pb = toPx(b);
     ctx.beginPath();
@@ -754,21 +919,22 @@ function drawCalibration(ctx: CanvasRenderingContext2D, world: Rect, p: Project)
     ctx.setLineDash([]);
     for (const q of [pa, pb]) {
       ctx.beginPath();
-      ctx.arc(q.x, q.y, 5, 0, Math.PI * 2);
+      ctx.arc(q.x, q.y, 4.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1.5;
       ctx.stroke();
-      ctx.strokeStyle = '#f0b429';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#c8920a';
+      ctx.lineWidth = 1.8;
     }
     if (label) {
       const mx = (pa.x + pb.x) / 2;
-      const my = (pa.y + pb.y) / 2 - 10;
-      ctx.font = 'bold 12px system-ui';
+      const my = (pa.y + pb.y) / 2 - 9;
+      ctx.font = 'bold 11px "Segoe UI", system-ui';
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
       ctx.lineWidth = 4;
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
       ctx.strokeText(label, mx, my);
       ctx.fillStyle = '#7a5b00';
       ctx.fillText(label, mx, my);
@@ -776,12 +942,14 @@ function drawCalibration(ctx: CanvasRenderingContext2D, world: Rect, p: Project)
   } else {
     ctx.setLineDash([]);
     ctx.beginPath();
-    ctx.arc(pa.x, pa.y, 5, 0, Math.PI * 2);
+    ctx.arc(pa.x, pa.y, 4.5, 0, Math.PI * 2);
     ctx.fill();
     if (label) {
-      ctx.font = 'bold 12px system-ui';
+      ctx.font = 'bold 11px "Segoe UI", system-ui';
       ctx.textAlign = 'left';
-      ctx.fillText(label, pa.x + 10, pa.y - 8);
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = '#7a5b00';
+      ctx.fillText(label, pa.x + 9, pa.y - 6);
     }
   }
   ctx.restore();
@@ -822,18 +990,15 @@ contourPlot.onRawTap = (u, v) => {
     contourPlot.paint();
     return;
   }
-  // 底图当前把这段画成 gridMeters，实际是 realM → 底图缩放乘以 realM/gridMeters
   const factor = realM / gridMeters;
   p.baseMapScale = Math.min(5, Math.max(0.2, p.baseMapScale * factor));
   p.baseMapCalibration = { u1: a.u, v1: a.v, u2: b.u, v2: b.v, meters: realM };
-  // 校准后网格的米制比例就是真实比例 → 比例尺直接按网格宽度绘制
   p.planReferenceMeters = W;
   touch(p);
   persist();
   setCalibMode(false);
-  entryPlot.paint();
-  contourPlot.paint();
   hintBasemap(p);
+  renderAll();
   alert(`已校准：底图缩放 ×${factor.toFixed(3)}（现为 ${p.baseMapScale.toFixed(2)}×）\n比例尺已按真实米制显示。`);
 };
 
@@ -841,7 +1006,7 @@ contourPlot.onRawTap = (u, v) => {
 
 document.getElementById('btn-noise')!.addEventListener('click', () => {
   const item = current();
-  if (!item) return;
+  if (!item) { alert('请先打开项目'); return; }
   if (item.measurements.length === 0) { alert('请先录入测点数据'); return; }
   const thr = parseFloat(prompt('噪声源判定阈值 (dB)：', '70') ?? '70');
   if (Number.isNaN(thr)) return;
@@ -850,7 +1015,8 @@ document.getElementById('btn-noise')!.addEventListener('click', () => {
   for (const m of item.measurements) m.isNoiseSource = keys.has(`${m.col},${m.row}`);
   touch(item.project);
   persist();
-  noiseHintEl.textContent = `识别到 ${sources.length} 个疑似噪声源（黑圈标记）`;
+  noiseHintEl.textContent = `识别到 ${sources.length} 个疑似噪声源（红圈标记）`;
+  renderStats(item);
   contourPlot.paint();
 });
 
@@ -888,9 +1054,58 @@ settingsForm.addEventListener('submit', (e) => {
   p.backgroundNoiseDb = Math.max(0, parseFloat(field('backgroundNoiseDb').value) || 0);
   touch(p);
   persist();
+  splFieldCache = null;
   renderAll();
-  alert('已保存');
 });
+
+// ───────────────────────── status bar / stats ─────────────────────────
+
+const stCoords = document.getElementById('st-coords')!;
+const stZoom = document.getElementById('st-zoom')!;
+const stProgress = document.getElementById('st-progress')!;
+const stGrid = document.getElementById('st-grid')!;
+
+function reportCoords(u: number, v: number): void {
+  const item = current();
+  if (!item || !Number.isFinite(u) || !Number.isFinite(v)) {
+    stCoords.textContent = 'X — m　Y — m';
+    return;
+  }
+  const p = item.project;
+  const x = u * p.cols * p.spacingX;
+  const y = v * p.rows * p.spacingY;
+  stCoords.textContent = `X ${x.toFixed(2)} m　Y ${y.toFixed(2)} m`;
+}
+
+function updateStatus(): void {
+  const item = current();
+  const z = activePlot().transform.zoom;
+  stZoom.textContent = `缩放 ${z.toFixed(1)}×`;
+  if (!item) {
+    stProgress.textContent = '已测 0 / 0';
+    stGrid.textContent = '网格 —';
+    return;
+  }
+  const p = item.project;
+  stProgress.textContent = `已测 ${item.measurements.length} / ${pointCount(p)}`;
+  stGrid.textContent = `网格 ${p.cols}×${p.rows} cell · ${p.spacingX}×${p.spacingY} m · 底噪 ${p.backgroundNoiseDb} dBA`;
+}
+
+function renderStats(item: ProjectWithMeasurements | null): void {
+  if (!item) { contourStatsEl.innerHTML = ''; return; }
+  const field = getCachedField(item);
+  const sources = item.measurements.filter((m) => m.isNoiseSource).length;
+  const rows: Array<[string, string]> = [
+    ['测点', `${item.measurements.length} / ${pointCount(item.project)}`],
+    ['声压级', field ? `${field.min.toFixed(1)} – ${field.max.toFixed(1)} dB` : '—'],
+    ['噪声源', sources ? `${sources} 处` : '未识别'],
+    ['底图', item.project.backgroundDxfText ? 'CAD 矢量' : item.project.backgroundImageData ? '位图' : '无'],
+    ['定标', item.project.baseMapCalibration ? `${item.project.baseMapCalibration.meters.toFixed(1)} m` : '未定标'],
+  ];
+  contourStatsEl.innerHTML = rows
+    .map(([k, v]) => `<span class="k">${k}</span><span class="v">${escapeHtml(v)}</span>`)
+    .join('');
+}
 
 // ───────────────────────── render all ─────────────────────────
 
@@ -898,13 +1113,8 @@ function renderWorkspace(): void {
   const item = current();
   emptyEl.hidden = !!item;
   wsEl.hidden = !item;
-  if (!item) return;
+  if (!item) { renderSummary(null); updateStatus(); return; }
   const { project } = item;
-  (document.getElementById('ws-title') as HTMLElement).textContent = project.name;
-  const measured = item.measurements.length;
-  (document.getElementById('ws-meta') as HTMLElement).textContent =
-    `${project.cols}×${project.rows} 格（${pointCount(project)} 个测点）· 间距 ${project.spacingX}×${project.spacingY} m · 底噪 ${project.backgroundNoiseDb} dBA`;
-  entryProgressEl.textContent = `已测 ${measured} / ${pointCount(project)} 测点（测点位于网格线交汇处）`;
 
   entryPlot.cols = project.cols;
   entryPlot.rows = project.rows;
@@ -919,6 +1129,9 @@ function renderWorkspace(): void {
   fillSettings(project);
   renderBandChoices();
   renderLegend(item);
+  renderStats(item);
+  renderSummary(item);
+  updateStatus();
   entryPlot.paint();
   contourPlot.paint();
 }
@@ -926,6 +1139,11 @@ function renderWorkspace(): void {
 function renderAll(): void {
   renderSidebar();
   renderWorkspace();
+  syncTabButtons();
 }
 
 renderAll();
+window.addEventListener('resize', () => {
+  entryPlot.resize();
+  contourPlot.resize();
+});

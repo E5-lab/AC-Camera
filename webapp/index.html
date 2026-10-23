@@ -3,122 +3,175 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AC-Camera · 厂区噪声网格测量</title>
+  <title>AC-Camera · 厂区噪声预测与普查</title>
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
-  <div id="app">
+<div id="app">
+  <!-- ── 顶部工具条 ── -->
+  <header id="toolbar">
+    <div class="brand">
+      <span class="logo">AC</span>
+      <span class="brand-text">
+        <b>AC-Camera</b>
+        <small>厂区噪声预测与普查</small>
+      </span>
+    </div>
+
+    <div class="tb-group">
+      <button id="btn-new-project" class="tb">新建项目</button>
+      <button id="btn-demo" class="tb">示例项目</button>
+    </div>
+    <div class="tb-sep"></div>
+
+    <div class="tb-group">
+      <button id="btn-import" class="tb">导入数据</button>
+      <button id="btn-export" class="tb">导出数据</button>
+    </div>
+    <div class="tb-sep"></div>
+
+    <div class="tb-group viewtabs">
+      <button data-tab="entry" class="tb viewtab active">▦ 数据录入</button>
+      <button data-tab="contour" class="tb viewtab">▩ 等声压级图</button>
+      <button data-tab="settings" class="tb viewtab">⚙ 网格设置</button>
+    </div>
+    <div class="tb-sep"></div>
+
+    <div class="tb-group zoombar">
+      <button data-zoom="out" class="tb icon" title="缩小">－</button>
+      <button data-zoom="in" class="tb icon" title="放大">＋</button>
+      <button data-zoom="fit" class="tb" title="缩放到全图">适应窗口</button>
+      <span id="zoom-readout" class="readout">1.0×</span>
+    </div>
+
+    <span class="spacer"></span>
+
+    <div class="tb-group">
+      <button id="btn-basemap" class="tb">导入底图</button>
+      <button id="btn-calibrate" class="tb">两点定标</button>
+      <button id="btn-noise" class="tb strong">识别噪声源</button>
+    </div>
+  </header>
+
+  <div id="body">
+    <!-- ── 左侧：项目与参数 ── -->
     <aside id="sidebar">
-      <h1>AC-Camera</h1>
-      <div class="side-actions">
-        <button id="btn-new-project" class="primary">＋ 新建项目</button>
-        <button id="btn-demo">载入示例项目</button>
-        <button id="btn-export">导出 JSON</button>
-        <button id="btn-import">导入 JSON</button>
-      </div>
-      <div id="project-list"></div>
-      <div id="storage-hint" class="hint"></div>
+      <div class="panel-title">项目 <span id="project-count" class="badge">0</span></div>
+      <div id="project-list" class="scroll"></div>
+      <div class="panel-title">项目参数</div>
+      <div id="project-summary" class="kv"></div>
+      <div class="spacer-v"></div>
+      <div id="storage-hint" class="hint small"></div>
     </aside>
+
+    <!-- ── 中央：绘图区 ── -->
     <main id="main">
-      <div id="empty-state" class="empty">← 选择或新建一个项目开始测量</div>
+      <div id="empty-state" class="empty">
+        <div class="empty-box">
+          <div class="empty-title">未打开项目</div>
+          <div class="empty-sub">在左侧选择项目，或点击「新建项目 / 示例项目」开始。</div>
+        </div>
+      </div>
+
       <div id="workspace" hidden>
-        <header id="ws-header">
-          <h2 id="ws-title"></h2>
-          <div id="ws-meta" class="hint"></div>
-        </header>
-        <nav id="tabs">
-          <button class="tab active" data-tab="entry">数据录入</button>
-          <button class="tab" data-tab="contour">等声压级图</button>
-          <button class="tab" data-tab="settings">网格设置</button>
-        </nav>
         <section id="tab-entry" class="tab-page">
-          <div class="toolbar">
-            <span id="entry-progress" class="hint"></span>
-            <span class="spacer"></span>
-            <label>缩放 <span id="entry-zoom-label">1.0×</span></label>
-            <button data-zoom="in">＋</button>
-            <button data-zoom="out">－</button>
-            <button data-zoom="fit">适应网格</button>
-          </div>
           <div id="entry-canvas-wrap" class="canvas-wrap"></div>
-          <p class="hint">测点位于网格线交汇处（不是格内）。滚轮缩放、拖动平移、单击交汇点录入。</p>
         </section>
-        <section id="tab-contour" class="tab-page" hidden>
-          <div class="toolbar">
-            <label>色阶</label>
-            <div id="band-choices"></div>
-            <label>透明度 <span id="alpha-label">72%</span></label>
-            <input type="range" id="alpha-slider" min="10" max="100" value="72" />
-            <span class="spacer"></span>
-            <label>视图 <span id="contour-zoom-label">1.0×</span></label>
-            <button data-czoom="in">＋</button>
-            <button data-czoom="out">－</button>
-            <button data-czoom="fit">适应网格</button>
-          </div>
-          <div class="toolbar">
-            <button id="btn-basemap" class="primary">导入底图（图片 / PDF / DXF）</button>
-            <button id="btn-calibrate">两点定标</button>
-            <span id="basemap-hint" class="hint"></span>
-            <span class="spacer"></span>
-            <label>底图对齐</label>
-            <button data-bm="in">底图＋</button>
-            <button data-bm="out">底图－</button>
-            <button data-bm="left">←</button>
-            <button data-bm="right">→</button>
-            <button data-bm="up">↑</button>
-            <button data-bm="down">↓</button>
-            <button data-bm="reset">重置</button>
-            <span class="spacer"></span>
-            <button id="btn-noise">识别噪声源</button>
-            <span id="noise-hint" class="hint"></span>
-          </div>
-          <div id="calib-banner" class="calib-banner" hidden>
-            校准模式：在底图上依次点击两个已知实际距离的点（如厂房轴线两端）。按 Esc 或再点「两点定标」退出。
-          </div>
+
+        <section id="tab-contour" class="tab-page split" hidden>
           <div id="contour-canvas-wrap" class="canvas-wrap"></div>
-          <div id="contour-legend"></div>
+          <aside id="right-dock">
+            <div class="panel-title">色阶分级</div>
+            <div id="band-choices" class="band-grid"></div>
+
+            <div class="panel-title">声场透明度</div>
+            <div class="ctl-row">
+              <input type="range" id="alpha-slider" min="10" max="100" value="72" />
+              <span id="alpha-label" class="readout">72%</span>
+            </div>
+
+            <div class="panel-title">声压级 (dB)</div>
+            <div id="contour-legend"></div>
+
+            <div class="panel-title">底图</div>
+            <div id="basemap-hint" class="hint small"></div>
+            <div class="btn-grid">
+              <button data-bm="in">底图＋</button>
+              <button data-bm="out">底图－</button>
+              <button data-bm="left">←</button>
+              <button data-bm="right">→</button>
+              <button data-bm="up">↑</button>
+              <button data-bm="down">↓</button>
+              <button data-bm="reset" class="span2">复位底图</button>
+            </div>
+
+            <div class="panel-title">统计</div>
+            <div id="contour-stats" class="kv"></div>
+            <div id="noise-hint" class="hint small"></div>
+          </aside>
         </section>
+
         <section id="tab-settings" class="tab-page" hidden>
-          <form id="settings-form">
+          <form id="settings-form" class="form-grid">
             <label>项目名称 <input name="name" required /></label>
-            <label>备注（厂名/区域） <input name="description" /></label>
-            <div class="row">
-              <label>列数（网格单元） <input name="cols" type="number" min="2" max="60" required /></label>
-              <label>行数（网格单元） <input name="rows" type="number" min="2" max="60" required /></label>
-            </div>
-            <div class="row">
-              <label>列间距 (m) <input name="spacingX" type="number" step="0.1" min="0.1" required /></label>
-              <label>行间距 (m) <input name="spacingY" type="number" step="0.1" min="0.1" required /></label>
-            </div>
-            <label>底图参照宽度 (m，平面图实际跨越的东西向宽度；用于按真实比例显示并绘制比例尺)
+            <label>备注（厂名 / 区域） <input name="description" /></label>
+            <label>列数（网格单元） <input name="cols" type="number" min="2" max="60" required /></label>
+            <label>行数（网格单元） <input name="rows" type="number" min="2" max="60" required /></label>
+            <label>列间距 (m) <input name="spacingX" type="number" step="0.1" min="0.1" required /></label>
+            <label>行间距 (m) <input name="spacingY" type="number" step="0.1" min="0.1" required /></label>
+            <label>底图参照宽度 (m)
               <input name="planReferenceMeters" type="number" step="0.1" min="0" />
             </label>
-            <label>背景噪声 / 底噪 (dBA) <input name="backgroundNoiseDb" type="number" step="0.1" min="0" /></label>
-            <button class="primary" type="submit">保存设置</button>
+            <label>背景噪声 / 底噪 (dBA)
+              <input name="backgroundNoiseDb" type="number" step="0.1" min="0" />
+            </label>
+            <div class="form-actions">
+              <button class="primary" type="submit">保存设置</button>
+            </div>
           </form>
         </section>
+
+        <div id="calib-banner" class="calib-banner" hidden>
+          校准模式：在底图上依次点击两个已知实际距离的点（如厂房轴线两端）。按 Esc 或再点「两点定标」退出。
+        </div>
       </div>
     </main>
   </div>
-  <!-- 录入弹窗 -->
-  <dialog id="point-dialog">
-    <form method="dialog">
-      <h3 id="pd-title">测点</h3>
-      <label>声压级 (dB，声级计实测值)
-        <input id="pd-spl" type="number" step="0.1" />
-      </label>
-      <label>备注（设备 / 工况）
-        <input id="pd-note" />
-      </label>
-      <menu>
-        <button value="cancel">取消</button>
-        <button id="pd-clear" type="button" class="danger">清除该点</button>
-        <button id="pd-save" value="save" class="primary">保存</button>
-      </menu>
-    </form>
-  </dialog>
-  <input type="file" id="import-file" accept=".json" hidden />
-  <input type="file" id="basemap-file" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf,.dxf" hidden />
-  <script type="module" src="/src/main.ts"></script>
+
+  <!-- ── 底部状态栏 ── -->
+  <footer id="statusbar">
+    <span id="st-coords">X — m　Y — m</span>
+    <span class="sb-sep"></span>
+    <span id="st-zoom">缩放 1.0×</span>
+    <span class="sb-sep"></span>
+    <span id="st-progress">已测 0 / 0</span>
+    <span class="sb-sep"></span>
+    <span id="st-grid">网格 —</span>
+    <span class="spacer"></span>
+    <span id="st-hint">滚轮缩放 · 拖动平移 · 单击交汇点录入</span>
+  </footer>
+</div>
+
+<!-- 录入弹窗 -->
+<dialog id="point-dialog">
+  <form method="dialog">
+    <h3 id="pd-title">测点</h3>
+    <label>声压级 (dB，声级计实测值)
+      <input id="pd-spl" type="number" step="0.1" />
+    </label>
+    <label>备注（设备 / 工况）
+      <input id="pd-note" />
+    </label>
+    <menu>
+      <button value="cancel">取消</button>
+      <button id="pd-clear" type="button" class="danger">清除该点</button>
+      <button id="pd-save" value="save" class="primary">保存</button>
+    </menu>
+  </form>
+</dialog>
+
+<input type="file" id="import-file" accept=".json" hidden />
+<input type="file" id="basemap-file" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf,.dxf" hidden />
+<script type="module" src="/src/main.ts"></script>
 </body>
 </html>

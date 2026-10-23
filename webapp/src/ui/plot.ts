@@ -24,6 +24,8 @@ export class PlotCanvas {
   onTap: ((col: number, row: number) => void) | null = null;
   /** 校准模式下需要未吸附的真实点：设置后 pointerup 会回调归一化世界坐标（0..1）。 */
   onRawTap: ((u: number, v: number) => void) | null = null;
+  /** 鼠标在世界坐标中的位置（归一化 0..1），供状态栏显示米制坐标。 */
+  onHover: ((u: number, v: number) => void) | null = null;
   rawTapMode = false;
   cols = 10;
   rows = 10;
@@ -52,18 +54,28 @@ export class PlotCanvas {
     });
 
     this.canvas.addEventListener('pointermove', (e) => {
-      if (!this.dragStart) return;
-      const dx = e.offsetX - this.dragStart.x;
-      const dy = e.offsetY - this.dragStart.y;
-      if (!this.dragStart.moved && Math.hypot(dx, dy) < 4) return; // 抑制抖动误判为拖动
-      this.dragStart.moved = true;
-      this.transform.panX += dx;
-      this.transform.panY += dy;
-      this.dragStart.x = e.offsetX;
-      this.dragStart.y = e.offsetY;
-      this.clampPan();
-      this.paint();
+      if (this.dragStart) {
+        const dx = e.offsetX - this.dragStart.x;
+        const dy = e.offsetY - this.dragStart.y;
+        if (this.dragStart.moved || Math.hypot(dx, dy) >= 4) {
+          this.dragStart.moved = true;
+          this.transform.panX += dx;
+          this.transform.panY += dy;
+          this.dragStart.x = e.offsetX;
+          this.dragStart.y = e.offsetY;
+          this.clampPan();
+          this.paint();
+        }
+      }
+      if (this.onHover) {
+        const w = this.worldRect();
+        if (w.width > 0 && w.height > 0) {
+          this.onHover((e.offsetX - w.left) / w.width, (e.offsetY - w.top) / w.height);
+        }
+      }
     });
+
+    this.canvas.addEventListener('pointerleave', () => this.onHover?.(NaN, NaN));
 
     this.canvas.addEventListener('pointerup', (e) => {
       const start = this.dragStart;
