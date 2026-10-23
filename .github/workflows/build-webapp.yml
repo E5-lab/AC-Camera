@@ -1,4 +1,4 @@
-name: Build Web App (Windows exe)
+name: Build NoiseAtlas (Windows exe)
 
 on:
   push:
@@ -48,7 +48,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          Copy-Item webapp/src-tauri/target/release/accamera.exe artifacts/AC-Camera-Web.exe
+          Copy-Item webapp/src-tauri/target/release/noiseatlas.exe artifacts/NoiseAtlas-Windows.exe
           Copy-Item webapp/src-tauri/target/release/bundle/nsis/*.exe artifacts/ -ErrorAction SilentlyContinue
           Get-ChildItem artifacts
 
@@ -71,7 +71,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-webapp
-          name: AC-Camera Web (latest build)
+          name: NoiseAtlas (latest build)
           prerelease: true
           force: true
           files: artifacts/*

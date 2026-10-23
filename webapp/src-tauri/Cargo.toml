@@ -1,7 +1,7 @@
 [package]
-name = "accamera"
-version = "0.1.0"
-description = "AC-Camera factory noise grid survey (Windows)"
+name = "noiseatlas"
+version = "0.2.0"
+description = "NoiseAtlas - factory noise grid survey and equal-SPL mapping (Windows)"
 edition = "2021"
 
 [build-dependencies]
@@ -11,10 +11,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 
 [lib]
-name = "accamera_lib"
+name = "noiseatlas_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 path = "src/lib.rs"
 
 [[bin]]
-name = "accamera"
+name = "noiseatlas"
 path = "src/main.rs"

@@ -1,6 +1,6 @@
-# AC-Camera Web（重构版 · 方案 A）
+# NoiseAtlas 噪声图谱（重构版 · 方案 A）
 
-厂区噪声网格测量工具。此目录是 **Tauri 2 + TypeScript 重构**的 Web 核心——
+厂区噪声网格普查与等声压级成图工具（原 AC-Camera 重构版）。此目录是 **Tauri 2 + TypeScript 重构**的 Web 核心——
 先在浏览器里开发验证全部业务（M0-M4），最后再包 Tauri 出 Windows exe（M5）。
 
 ## 快速开始
@@ -43,7 +43,7 @@ npm run dev       # 浏览器打开 http://localhost:5173
 | M2 | 声场 + 色阶热力图 + 数值图例 | ✅（等值线待接 d3-contour） |
 | M3 | 底图（图片/PDF/DXF）+ 独立对齐 + 比例尺 | ⬜ |
 | M4 | 噪声源分析 + 治理备注 | ⬜ |
-| M5 | Tauri 打包 Windows exe | ⬜ |
+| M5 | Tauri 打包 Windows exe | ✅ |
 
 ## 目录结构
 

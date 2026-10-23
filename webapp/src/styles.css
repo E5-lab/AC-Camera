@@ -37,9 +37,65 @@ body {
 
 #app {
   display: grid;
-  grid-template-rows: 46px 1fr 24px;
+  grid-template-rows: 32px 44px 1fr 24px;
   height: 100%;
 }
+
+/* ───────────── 菜单栏 ───────────── */
+
+#menubar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  background: linear-gradient(#fdfdfe, #eef0f3);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+#menubar .brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 10px;
+  margin-right: 6px;
+  border-right: 1px solid var(--line);
+  height: 100%;
+}
+#menubar .logo { width: 20px; height: 20px; border-radius: 4px; }
+#menubar .brand-text { display: flex; flex-direction: column; line-height: 1.05; }
+#menubar .brand-text b { font-size: 12px; letter-spacing: .2px; }
+#menubar .brand-text small { font-size: 9px; color: var(--muted); }
+
+#menubar .menu {
+  padding: 3px 10px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+#menubar .menu:hover, #menubar .menu.open { background: var(--accent-soft); border-color: #b8d0e6; }
+.hint-inline { font-size: 10.5px; color: var(--muted); padding-right: 6px; }
+
+.menu-panel {
+  position: fixed;
+  z-index: 60;
+  min-width: 216px;
+  padding: 4px;
+  background: #fbfcfd;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  box-shadow: 0 6px 20px rgba(20, 26, 34, .18);
+}
+.menu-panel button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 10px;
+  border-radius: 2px;
+  font-size: 12px;
+}
+.menu-panel button:hover { background: var(--accent-soft); }
+.menu-sep { height: 1px; background: var(--line-soft); margin: 4px 6px; }
 
 /* ───────────── 顶部工具条 ───────────── */
 
@@ -347,3 +403,68 @@ dialog input {
 }
 dialog menu { display: flex; gap: 6px; justify-content: flex-end; margin: 8px 0 0; padding: 0; }
 dialog button { border: 1px solid var(--line-soft); background: #fbfcfd; padding: 4px 12px; border-radius: 2px; }
+
+/* ───────────── 工具条图标模式 ───────────── */
+
+#toolbar { height: 44px; }
+#toolbar .ic {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: #2f3a47;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+#toolbar button.tb { display: inline-flex; align-items: center; gap: 5px; }
+#toolbar .tb-label { font-size: 11.5px; }
+
+/* 仅图标 */
+#toolbar.mode-icon .tb-label { display: none; }
+#toolbar.mode-icon button.tb { padding: 5px 7px; }
+/* 仅文字 */
+#toolbar.mode-text .ic { display: none; }
+/* 图标 + 文字（默认） */
+#toolbar.mode-both .ic { display: inline-block; }
+
+/* ───────────── 对象树 ───────────── */
+
+.tree { padding: 4px 0 6px; font-size: 11.5px; }
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 8px;
+  cursor: default;
+  border-left: 3px solid transparent;
+  white-space: nowrap;
+}
+.tree-node.clickable { cursor: pointer; }
+.tree-node.clickable:hover { background: #e9eef4; }
+.tree-node.active { background: var(--accent-soft); border-left-color: var(--accent); }
+.tree-node .caret { width: 12px; color: #7d8794; font-size: 10px; flex: none; text-align: center; }
+.tree-node .t-ico { width: 14px; text-align: center; flex: none; opacity: .85; }
+.tree-node .t-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.tree-node .t-badge {
+  font-size: 10px;
+  color: #4b5561;
+  background: #e4e9ef;
+  border-radius: 8px;
+  padding: 0 6px;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.tree-node.lvl-1 { padding-left: 20px; }
+.tree-node.lvl-2 { padding-left: 36px; color: #4b5561; }
+
+/* ───────────── 显示开关 ───────────── */
+
+.chk-list { display: flex; flex-direction: column; gap: 3px; padding: 6px 10px; font-size: 11.5px; }
+.chk-list label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.chk-list input { accent-color: var(--accent); margin: 0; }
+
+.scroll.short { max-height: 24vh; }
+
+/* 状态栏小提示 */
+#statusbar #st-hint { color: #77828f; }

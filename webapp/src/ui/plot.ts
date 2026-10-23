@@ -17,7 +17,9 @@ export class PlotCanvas {
   readonly canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   readonly transform: Transform = { zoom: 1, panX: 0, panY: 0 };
+  /** 绘图边距：右侧留出空间绘制声压级色标（Odeon/Raynoise 式）。 */
   pad = 24;
+  padRight = 24;
 
   private dragStart: { x: number; y: number; moved: boolean } | null = null;
   private onPaint: (world: Rect, t: Transform) => void = () => {};
@@ -138,7 +140,8 @@ export class PlotCanvas {
   viewport(): Rect {
     const { width, height } = this.canvasRect();
     const pad = this.pad;
-    const availW = Math.max(1, width - 2 * pad);
+    const padR = this.padRight;
+    const availW = Math.max(1, width - pad - padR);
     const availH = Math.max(1, height - 2 * pad);
     const cell = Math.min(availW / this.cols, availH / this.rows);
     const w = cell * this.cols;
