@@ -22,6 +22,13 @@ export interface Project {
   backgroundImageData?: string | null;
   /** CAD（DXF）线图原文，随项目 JSON 一起保存（矢量绘制，不栅格化） */
   backgroundDxfText?: string | null;
+  /**
+   * 两点定标结果：底图上两点（归一化世界坐标 0..1）及其真实长度（米）。
+   * 用于把底图比例校准到测量网格的米制比例，并在图上标出该线段。
+   */
+  baseMapCalibration?: {
+    u1: number; v1: number; u2: number; v2: number; meters: number;
+  } | null;
 }
 
 export interface Measurement {

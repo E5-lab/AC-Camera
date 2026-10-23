@@ -22,6 +22,9 @@ export class PlotCanvas {
   private dragStart: { x: number; y: number; moved: boolean } | null = null;
   private onPaint: (world: Rect, t: Transform) => void = () => {};
   onTap: ((col: number, row: number) => void) | null = null;
+  /** 校准模式下需要未吸附的真实点：设置后 pointerup 会回调归一化世界坐标（0..1）。 */
+  onRawTap: ((u: number, v: number) => void) | null = null;
+  rawTapMode = false;
   cols = 10;
   rows = 10;
   onZoomChange: ((z: number) => void) | null = null;
@@ -66,6 +69,12 @@ export class PlotCanvas {
       const start = this.dragStart;
       this.dragStart = null;
       if (!start || start.moved) return; // 拖动结束不触发点击
+      if (this.rawTapMode) {
+        const w = this.worldRect();
+        if (w.width <= 0 || w.height <= 0) return;
+        this.onRawTap?.((e.offsetX - w.left) / w.width, (e.offsetY - w.top) / w.height);
+        return;
+      }
       if (!this.onTap) return;
       const hit = this.nearestIntersection(e.offsetX, e.offsetY);
       if (hit) this.onTap(hit.col, hit.row);

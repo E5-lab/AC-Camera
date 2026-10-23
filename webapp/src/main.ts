@@ -204,6 +204,33 @@ document.getElementById('btn-new-project')!.addEventListener('click', () => {
   renderAll();
 });
 
+// ───────────────────────── demo project ─────────────────────────
+
+document.getElementById('btn-demo')!.addEventListener('click', () => {
+  const p = newProject('示例 · 机加工车间', '演示数据：2 台冲床 + 1 台空压机', 8, 6, 5, 5);
+  const measurements: Measurement[] = [];
+  // 三个"声源"位置 + 底噪 55 dBA，生成一个有层次的示例场
+  const sources: Array<[number, number, number]> = [[2, 2, 92], [6, 1, 88], [5, 5, 85]];
+  let seed = 42;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  for (let c = 0; c <= p.cols; c++) {
+    for (let r = 0; r <= p.rows; r++) {
+      let spl = 55 + rnd() * 3; // 底噪附近抖动
+      for (const [sc, sr, base] of sources) {
+        const d = Math.hypot(c - sc, r - sr);
+        spl = Math.max(spl, base - 6 * d + rnd() * 2);
+      }
+      measurements.push({ projectId: p.id, col: c, row: r, spl: Math.round(spl * 10) / 10, note: '' });
+    }
+  }
+  measurements[2 * (p.rows + 1) + 2].isNoiseSource = true;
+  measurements[6 * (p.rows + 1) + 1].isNoiseSource = true;
+  store.push({ project: p, measurements });
+  currentId = p.id;
+  persist();
+  renderAll();
+});
+
 // ───────────────────────── export / import ─────────────────────────
 
 document.getElementById('btn-export')!.addEventListener('click', () => {
@@ -503,6 +530,7 @@ contourPlot.setPainter((world) => {
       }
     }
   }
+  drawCalibration(ctx, world, project);
   drawScaleBar(ctx, world, project.planReferenceMeters, contourPlot.transform.zoom);
 });
 
@@ -565,11 +593,17 @@ function renderLegend(item: ProjectWithMeasurements): void {
 // ── 底图导入（图片 / PDF / DXF）──
 
 function hintBasemap(p: Project): void {
-  basemapHintEl.textContent = p.backgroundDxfText
-    ? '底图：CAD 矢量线图'
+  const kind = p.backgroundDxfText
+    ? 'CAD 矢量线图'
     : p.backgroundImageData
-      ? '底图：位图（图片或 PDF 第 1 页）'
-      : '未导入底图';
+      ? '位图（图片或 PDF 第 1 页）'
+      : '';
+  const cal = p.baseMapCalibration;
+  basemapHintEl.textContent = !kind
+    ? '未导入底图'
+    : cal
+      ? `底图：${kind} · 已定标 ${cal.meters.toFixed(1)} m（缩放 ${p.baseMapScale.toFixed(2)}×）`
+      : `底图：${kind} · 未定标（可用「两点定标」校准比例）`;
 }
 
 async function downscaleToDataUrl(src: CanvasImageSource, w: number, h: number, max = 1600): Promise<string> {
@@ -661,6 +695,147 @@ document.querySelectorAll('[data-bm]').forEach((b) => {
     contourPlot.paint();
   });
 });
+
+// ── 两点定标：在底图上选两点 + 输入实际长度 → 自动换算底图缩放，使底图与网格米制一致 ──
+
+const calibBanner = document.getElementById('calib-banner') as HTMLElement;
+const calibrateBtn = document.getElementById('btn-calibrate') as HTMLButtonElement;
+let calibMode = false;
+let calibPts: Array<{ u: number; v: number }> = [];
+
+function setCalibMode(on: boolean): void {
+  calibMode = on;
+  calibPts = [];
+  contourPlot.rawTapMode = on;
+  calibBanner.hidden = !on;
+  calibrateBtn.classList.toggle('primary', on);
+  contourPlot.canvas.style.cursor = on ? 'crosshair' : 'crosshair';
+  contourPlot.paint();
+}
+
+calibrateBtn.addEventListener('click', () => setCalibMode(!calibMode));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && calibMode) setCalibMode(false);
+});
+
+/** 画定标线段：校准模式显示已点的点，保存后常显并标注实际长度。 */
+function drawCalibration(ctx: CanvasRenderingContext2D, world: Rect, p: Project): void {
+  const saved = p.baseMapCalibration;
+  let a: { u: number; v: number } | null = null;
+  let b: { u: number; v: number } | null = null;
+  let label = '';
+  if (calibMode) {
+    a = calibPts[0] ?? null;
+    b = calibPts[1] ?? null;
+    label = calibPts.length === 1 ? '再点第二个点' : '';
+  } else if (saved) {
+    a = { u: saved.u1, v: saved.v1 };
+    b = { u: saved.u2, v: saved.v2 };
+    label = `${saved.meters.toFixed(1)} m（定标）`;
+  }
+  if (!a) return;
+
+  const toPx = (q: { u: number; v: number }) => ({
+    x: world.left + q.u * world.width,
+    y: world.top + q.v * world.height,
+  });
+  const pa = toPx(a);
+  ctx.save();
+  ctx.strokeStyle = '#f0b429';
+  ctx.fillStyle = '#f0b429';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  if (b) {
+    const pb = toPx(b);
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const q of [pa, pb]) {
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.strokeStyle = '#f0b429';
+      ctx.lineWidth = 2;
+    }
+    if (label) {
+      const mx = (pa.x + pb.x) / 2;
+      const my = (pa.y + pb.y) / 2 - 10;
+      ctx.font = 'bold 12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.strokeText(label, mx, my);
+      ctx.fillStyle = '#7a5b00';
+      ctx.fillText(label, mx, my);
+    }
+  } else {
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(pa.x, pa.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    if (label) {
+      ctx.font = 'bold 12px system-ui';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, pa.x + 10, pa.y - 8);
+    }
+  }
+  ctx.restore();
+}
+
+contourPlot.onRawTap = (u, v) => {
+  if (!calibMode) return;
+  const item = current();
+  if (!item) return;
+  const p = item.project;
+  if (!p.backgroundImageData && !p.backgroundDxfText) {
+    alert('请先导入底图，再使用两点定标。');
+    setCalibMode(false);
+    return;
+  }
+  calibPts.push({ u, v });
+  if (calibPts.length === 1) {
+    contourPlot.paint();
+    return;
+  }
+
+  const [a, b] = calibPts;
+  const W = p.cols * p.spacingX;
+  const H = p.rows * p.spacingY;
+  const gridMeters = Math.hypot((b.u - a.u) * W, (b.v - a.v) * H);
+  if (!(gridMeters > 1e-6)) {
+    calibPts = [];
+    contourPlot.paint();
+    return;
+  }
+  const input = prompt(
+    `这两点在底图上代表多少米？（例如厂房两轴线的实际间距）\n按当前网格比例量得 ${gridMeters.toFixed(2)} m`,
+    gridMeters.toFixed(1),
+  );
+  const realM = parseFloat(input ?? '');
+  if (!Number.isFinite(realM) || realM <= 0) {
+    calibPts = [];
+    contourPlot.paint();
+    return;
+  }
+  // 底图当前把这段画成 gridMeters，实际是 realM → 底图缩放乘以 realM/gridMeters
+  const factor = realM / gridMeters;
+  p.baseMapScale = Math.min(5, Math.max(0.2, p.baseMapScale * factor));
+  p.baseMapCalibration = { u1: a.u, v1: a.v, u2: b.u, v2: b.v, meters: realM };
+  // 校准后网格的米制比例就是真实比例 → 比例尺直接按网格宽度绘制
+  p.planReferenceMeters = W;
+  touch(p);
+  persist();
+  setCalibMode(false);
+  entryPlot.paint();
+  contourPlot.paint();
+  hintBasemap(p);
+  alert(`已校准：底图缩放 ×${factor.toFixed(3)}（现为 ${p.baseMapScale.toFixed(2)}×）\n比例尺已按真实米制显示。`);
+};
 
 // ── 噪声源识别 ──
 

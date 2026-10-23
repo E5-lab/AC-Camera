@@ -188,6 +188,17 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   margin-top: 2px;
 }
 
+/* calibration banner */
+.calib-banner {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border: 1px solid #f0b429;
+  background: #fffbea;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a5b00;
+}
+
 /* settings */
 #settings-form {
   display: flex;

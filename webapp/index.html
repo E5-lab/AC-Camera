@@ -12,6 +12,7 @@
       <h1>AC-Camera</h1>
       <div class="side-actions">
         <button id="btn-new-project" class="primary">＋ 新建项目</button>
+        <button id="btn-demo">载入示例项目</button>
         <button id="btn-export">导出 JSON</button>
         <button id="btn-import">导入 JSON</button>
       </div>
@@ -56,6 +57,7 @@
           </div>
           <div class="toolbar">
             <button id="btn-basemap" class="primary">导入底图（图片 / PDF / DXF）</button>
+            <button id="btn-calibrate">两点定标</button>
             <span id="basemap-hint" class="hint"></span>
             <span class="spacer"></span>
             <label>底图对齐</label>
@@ -69,6 +71,9 @@
             <span class="spacer"></span>
             <button id="btn-noise">识别噪声源</button>
             <span id="noise-hint" class="hint"></span>
+          </div>
+          <div id="calib-banner" class="calib-banner" hidden>
+            校准模式：在底图上依次点击两个已知实际距离的点（如厂房轴线两端）。按 Esc 或再点「两点定标」退出。
           </div>
           <div id="contour-canvas-wrap" class="canvas-wrap"></div>
           <div id="contour-legend"></div>
