@@ -1,6 +1,6 @@
 [package]
 name = "noiseatlas"
-version = "0.2.0"
+version = "0.2.1"
 description = "NoiseAtlas - factory noise grid survey and equal-SPL mapping (Windows)"
 edition = "2021"
 

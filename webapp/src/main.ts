@@ -1481,6 +1481,11 @@ document.querySelectorAll('#m-sheet-tools [data-cmd]').forEach((b) => {
   });
 });
 
+// 空状态与悬浮按钮的新建入口（移动端主要靠它）
+document.getElementById('empty-new')?.addEventListener('click', () => runCmd('new-project'));
+document.getElementById('empty-demo')?.addEventListener('click', () => runCmd('demo'));
+document.getElementById('m-fab')?.addEventListener('click', () => runCmd('new-project'));
+
 // 移动端侧栏的四个快捷操作
 document.getElementById('m-new-project')?.addEventListener('click', () => { closeAllSheets(); runCmd('new-project'); });
 document.getElementById('m-demo')?.addEventListener('click', () => { closeAllSheets(); runCmd('demo'); });
@@ -1515,6 +1520,16 @@ function applyToolbarMode(mode: ToolbarMode): void {
 }
 
 function runCmd(cmd: string): void {
+  try {
+    runCmdInner(cmd);
+  } catch (err) {
+    // 静默失败最难排查：任何命令异常都显式告知用户
+    alert('操作失败：' + (err as Error).message);
+    console.error(err);
+  }
+}
+
+function runCmdInner(cmd: string): void {
   const item = current();
   switch (cmd) {
     case 'new-project': void createProject(); break;
@@ -1592,7 +1607,7 @@ function runCmd(cmd: string): void {
       break;
     case 'calibrate': setCalibMode(!calibMode); break;
     case 'about':
-      alert('NoiseAtlas 噪声图谱 0.2.0\n\n厂区噪声网格普查 · 等声压级成图 · 噪声源定位\n'
+      alert('NoiseAtlas 噪声图谱 v0.2.1\n\n厂区噪声网格普查 · 等声压级成图 · 噪声源定位\n'
         + '算法：能量叠加 + 距离衰减声场 / Marching Squares 等值线\n'
         + '数据格式与旧版 AC-Camera JSON 兼容');
       break;
