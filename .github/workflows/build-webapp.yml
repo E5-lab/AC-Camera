@@ -77,3 +77,70 @@ jobs:
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ───────────────────────── Android APK (Capacitor) ─────────────────────────
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build web assets
+        working-directory: webapp
+        shell: bash
+        run: |
+          set -o pipefail
+          npm install --no-fund --no-audit 2>&1 | tee web-build.log
+          npm run build
+
+      - name: Sync Capacitor Android
+        working-directory: webapp
+        shell: bash
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: webapp/android
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon 2>&1 | tee ../android-build.log
+
+      - name: Publish android build log (always)
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-logs
+          name: CI Build Logs
+          prerelease: true
+          force: true
+          fail_on_unmatched_files: false
+          files: |
+            webapp/web-build.log
+            webapp/android-build.log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish APK (on success)
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-android
+          name: NoiseAtlas Android (latest build)
+          prerelease: true
+          force: true
+          files: webapp/android/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

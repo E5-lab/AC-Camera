@@ -1355,6 +1355,23 @@ document.querySelectorAll('.menu-panel button[data-cmd]').forEach((b) => {
 });
 
 
+// 窄屏面板抽屉开关
+document.getElementById('btn-toggle-tree')?.addEventListener('click', () => {
+  document.getElementById('sidebar')!.classList.toggle('open');
+  document.getElementById('right-dock')!.classList.remove('open');
+});
+document.getElementById('btn-toggle-dock')?.addEventListener('click', () => {
+  document.getElementById('right-dock')!.classList.toggle('open');
+  document.getElementById('sidebar')!.classList.remove('open');
+});
+// 点击画布时收起抽屉，避免遮挡绘图区
+for (const el of [entryPlot.canvas, contourPlot.canvas]) {
+  el.addEventListener('pointerdown', () => {
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('right-dock')?.classList.remove('open');
+  });
+}
+
 // 右侧分区折叠
 document.querySelectorAll('#right-dock .dock-head').forEach((h) => {
   h.addEventListener('click', () => {

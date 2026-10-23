@@ -4,7 +4,7 @@
  * 输出：icon.png（256）、icon.ico（256/48/32/16，PNG 内嵌格式）、icon-512.png。
  */
 import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -203,5 +203,31 @@ const icoImages = [256, 48, 32, 16].map((s) => ({
   png: s === 256 ? encodePng(base, 256) : encodePng(downsample(base, 256, s), s),
 }));
 writeFileSync(resolve(OUT, 'icon.ico'), encodeIco(icoImages));
+
+// ── 安卓 mipmap（覆盖 Capacitor 默认图标；并移除自适应图标 XML 以免覆盖 PNG）──
+const ANDROID_RES = resolve(__dirname, '../android/app/src/main/res');
+const MIPMAPS = [
+  ['mipmap-mdpi', 48],
+  ['mipmap-hdpi', 72],
+  ['mipmap-xhdpi', 96],
+  ['mipmap-xxhdpi', 144],
+  ['mipmap-xxxhdpi', 192],
+];
+if (existsSync(ANDROID_RES)) {
+  for (const [dir, size] of MIPMAPS) {
+    const target = resolve(ANDROID_RES, dir);
+    mkdirSync(target, { recursive: true });
+    const png = encodePng(downsample(base, 256, size), size);
+    writeFileSync(resolve(target, 'ic_launcher.png'), png);
+    writeFileSync(resolve(target, 'ic_launcher_round.png'), png);
+    writeFileSync(resolve(target, 'ic_launcher_foreground.png'), png);
+  }
+  // 自适应图标 XML 会优先于 PNG，删掉以便使用我们生成的图标
+  const anydpi = resolve(ANDROID_RES, 'mipmap-anydpi-v26');
+  if (existsSync(anydpi)) {
+    rmSync(anydpi, { recursive: true, force: true });
+  }
+  console.log('android mipmaps written');
+}
 
 console.log('icons written to', OUT);

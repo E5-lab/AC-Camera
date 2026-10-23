@@ -1,0 +1,11 @@
+# 构建产物
+build/
+app/build/
+.gradle/
+local.properties
+captures/
+
+# Capacitor 每次 sync 都会重新生成的 Web 资源
+app/src/main/assets/public/
+app/src/main/assets/capacitor.config.json
+app/src/main/assets/capacitor.plugins.json

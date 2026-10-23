@@ -49,17 +49,50 @@ export class PlotCanvas {
       this.zoomAt(e.offsetX, e.offsetY, factor);
     }, { passive: false });
 
+    // ── 指针手势：单指/左键拖动平移，双指捏合缩放（安卓 WebView 无滚轮）──
+    const pointers = new Map<number, { x: number; y: number }>();
+    let pinch: { dist: number; mx: number; my: number } | null = null;
+
     this.canvas.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       this.canvas.setPointerCapture(e.pointerId);
-      this.dragStart = { x: e.offsetX, y: e.offsetY, moved: false };
+      pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+      if (pointers.size === 1) {
+        this.dragStart = { x: e.offsetX, y: e.offsetY, moved: false };
+        pinch = null;
+      } else if (pointers.size === 2) {
+        this.dragStart = null; // 多指时不再判定为点击
+        pinch = pinchState(pointers);
+      }
     });
 
     this.canvas.addEventListener('pointermove', (e) => {
+      if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+
+      if (pointers.size >= 2 && pinch) {
+        const now = pinchState(pointers);
+        if (now && pinch.dist > 1) {
+          const factor = now.dist / pinch.dist;
+          if (Math.abs(factor - 1) > 0.001) this.zoomAt(now.mx, now.my, factor);
+          // 双指整体平移
+          const dx = now.mx - pinch.mx;
+          const dy = now.my - pinch.my;
+          if (dx || dy) {
+            this.transform.panX += dx;
+            this.transform.panY += dy;
+            this.clampPan();
+            this.paint();
+          }
+        }
+        pinch = now;
+        return;
+      }
+
       if (this.dragStart) {
         const dx = e.offsetX - this.dragStart.x;
         const dy = e.offsetY - this.dragStart.y;
-        if (this.dragStart.moved || Math.hypot(dx, dy) >= 4) {
+        const threshold = e.pointerType === 'mouse' ? 4 : 8; // 手指抖动更大
+        if (this.dragStart.moved || Math.hypot(dx, dy) >= threshold) {
           this.dragStart.moved = true;
           this.transform.panX += dx;
           this.transform.panY += dy;
@@ -80,9 +113,11 @@ export class PlotCanvas {
     this.canvas.addEventListener('pointerleave', () => this.onHover?.(NaN, NaN));
 
     this.canvas.addEventListener('pointerup', (e) => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinch = null;
       const start = this.dragStart;
       this.dragStart = null;
-      if (!start || start.moved) return; // 拖动结束不触发点击
+      if (!start || start.moved || pointers.size > 0) return; // 拖动或多指结束不触发点击
       if (this.rawTapMode) {
         const w = this.worldRect();
         if (w.width <= 0 || w.height <= 0) return;
@@ -92,6 +127,12 @@ export class PlotCanvas {
       if (!this.onTap) return;
       const hit = this.nearestIntersection(e.offsetX, e.offsetY);
       if (hit) this.onTap(hit.col, hit.row);
+    });
+
+    this.canvas.addEventListener('pointercancel', (e) => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinch = null;
+      this.dragStart = null;
     });
   }
 
@@ -208,4 +249,16 @@ export interface Rect {
   top: number;
   width: number;
   height: number;
+}
+
+/** 双指的中心点与间距，用于捏合缩放。 */
+function pinchState(pointers: Map<number, { x: number; y: number }>): { dist: number; mx: number; my: number } | null {
+  const pts = [...pointers.values()];
+  if (pts.length < 2) return null;
+  const [a, b] = pts;
+  return {
+    dist: Math.hypot(a.x - b.x, a.y - b.y),
+    mx: (a.x + b.x) / 2,
+    my: (a.y + b.y) / 2,
+  };
 }
